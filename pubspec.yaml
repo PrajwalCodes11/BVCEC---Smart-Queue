@@ -1,0 +1,52 @@
+name: smartqueue
+description: "BVCEC SmartQueue — Campus Queue Management System"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Backend & Auth
+  supabase_flutter: ^2.8.4
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # Models (immutable + serialization)
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
+
+  # Notifications (in-app only)
+  flutter_local_notifications: ^17.2.4
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.5.1
+  google_fonts: ^6.2.1
+  cupertino_icons: ^1.0.8
+
+  # Misc UI
+  fl_chart: ^0.69.0
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.16.1
+  freezed: ^4.0.2
+  json_serializable: ^6.14.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
