@@ -1,178 +1,186 @@
 # BVCEC SmartQueue
 
-A campus queue-management system for Bonam Venkata Chalamayya Engineering College (Autonomous), Odalarevu, Andhra Pradesh.
+<p align="center">
+  <strong>Intelligent Campus Queue & Resource Management System</strong><br>
+  Bonam Venkata Chalamayya Engineering College (Autonomous), Odalarevu, Andhra Pradesh
+</p>
 
-**B.Tech Laboratory Project** — Flutter / Dart
-
----
-
-## Overview
-
-BVCEC SmartQueue allows students to join virtual queues for campus services instead of waiting physically at counters. Staff manage queue flow from a dedicated counter screen, and administrators configure service centers, services, and counters.
-
----
-
-## Features
-
-### Student
-- Login with registration number + password
-- Browse all service centers (Examination, Library, Accounts, etc.)
-- Select a service and join the queue
-- Get a digital token with real-time position tracking
-- See estimated waiting time (adaptive EWT algorithm)
-- Cancel queue entry
-- View queue history
-
-### Staff
-- Login and select assigned counter
-- Real-time queue view (auto-updates via Supabase Realtime)
-- Call Next → Start Service → Complete
-- Mark No-Show for absent students
-
-### Administrator
-- Manage service centers (add, activate/deactivate)
-- Manage services per center (add, configure duration, toggle)
-- Manage counters (add, assign staff, update status)
-- Analytics dashboard (last 30 days: throughput, avg service time, rates)
+<p align="center">
+  <img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter" alt="Flutter" />
+  <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart" alt="Dart" />
+  <img src="https://img.shields.io/badge/Backend-Supabase-3ECF8E?logo=supabase" alt="Supabase" />
+  <img src="https://img.shields.io/badge/State_Management-Riverpod_2.x-00599C" alt="Riverpod" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20|%20Android-green" alt="Platforms" />
+</p>
 
 ---
 
-## Setup
+## 📌 Overview
 
-### 1. Supabase Project
-
-1. Go to [supabase.com](https://supabase.com) → New Project
-2. Open **SQL Editor** and run `supabase_schema.sql` (in project root)
-3. Copy your **Project URL** and **anon key** from Settings → API
-
-### 2. Configure Credentials
-
-Open `lib/core/constants/supabase_constants.dart`:
-
-```dart
-static const String supabaseUrl = 'YOUR_SUPABASE_URL';     // ← paste here
-static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'; // ← paste here
-```
-
-> ⚠️ Never commit real credentials to a public repository.
-
-### 3. Generate Freezed Models
-
-```bash
-flutter pub run build_runner build --delete-conflicting-outputs
-```
-
-### 4. Run the App
-
-```bash
-# Android
-flutter run
-
-# Windows
-flutter run -d windows
-```
+**BVCEC SmartQueue** transforms traditional physical line waiting at college service counters into a streamlined, real-time digital experience. Students can join virtual queues from anywhere on campus, track their position and estimated wait times in real time, while staff and administrators manage queue flow and monitor throughput with comprehensive operational analytics.
 
 ---
 
-## Architecture
+## ✨ Features by Role
+
+### 🎓 Student Portal
+- **Zero-Friction Authentication**: Login using Registration / Roll Number and password.
+- **Service Center Directory**: Browse campus centers (Examination Section, Accounts, Library, etc.) and active services.
+- **Digital Token & Live Tracking**: Real-time position updates, ticket receipt, and status tracking powered by Supabase Realtime.
+- **Predictive EWT**: Dynamic Estimated Waiting Time calculated using exponential smoothing based on historical service duration and active counter throughput.
+- **Queue Controls & History**: Cancel active tokens and review previous service records with full session timestamps.
+- **Profile Management**: View and update academic profile details.
+
+### 💼 Staff Console
+- **Dedicated Counter Workspace**: Staff log in and connect to their assigned service counter.
+- **Real-Time Stream**: Live student list updating instantly upon queue arrivals and cancellations.
+- **State Machine Workflow**: Controlled transitions (`Call Next` ➔ `Start Service` ➔ `Complete` / `No-Show` / `Transfer`).
+- **Counter Status Toggle**: Pause or open counters dynamically.
+
+### 🛡️ Administrator Suite
+- **Live Campus Queue Monitor**: Real-time overview of active waiting and serving students across all centers.
+- **Center, Service & Counter Management**: Create, toggle active states, configure estimated durations, and assign staff to counters.
+- **Advanced Operations Analytics**:
+  - **Date Range Filters**: Inspect 7-day, 30-day, or 90-day periods.
+  - **Campus-Wide or Per-Center**: Toggle between overall campus metrics and specific center performance.
+  - **Interactive Bar Chart (`fl_chart`)**: Daily throughput comparing total tickets vs completed sessions with touch tooltips.
+  - **Peak Hours Heatmap**: 24-hour arrival density histogram pinpointing rush periods.
+  - **Wait & Service Time Metrics**: Average and maximum student wait times and service durations.
+  - **Per-Service Performance**: Granular cards showing total volume, completion progress bars, cancellations, and no-shows.
+  - **Operational Rates**: Completion rate, cancellation rate, and no-show rate indicators.
+
+---
+
+## 🏛️ System Architecture
+
+The application is built using **Clean Architecture** patterns separating UI presentation, domain logic, state management, and data sources:
 
 ```
 lib/
-├── core/                  # Constants, theme, router, extensions, utils
-│   ├── constants/         # Supabase table names & credentials
-│   ├── providers/         # Root Riverpod providers
-│   ├── router/            # GoRouter with role-based guards
-│   ├── theme/             # Dark theme (Inter font, teal/navy palette)
-│   ├── utils/             # EwtCalculator (business logic, no Flutter deps)
-│   └── errors/            # Typed exception hierarchy
+├── core/
+│   ├── constants/             # Supabase credentials & table definitions
+│   ├── errors/                # Strongly-typed application exceptions
+│   ├── extensions/            # Helper extensions on core types
+│   ├── providers/             # Root Riverpod providers
+│   ├── router/                # GoRouter with role-based auth guards
+│   ├── services/              # Local notification dispatcher
+│   ├── theme/                 # Dark aesthetic theme (Inter typography & teal accents)
+│   └── utils/                 # EwtCalculator (isolated exponential smoothing engine)
 ├── data/
-│   ├── models/            # Freezed immutable models (all domain entities)
-│   └── repositories/      # Supabase-backed data access
+│   ├── models/                # Immutable Freezed domain entities & JSON serialization
+│   └── repositories/          # Supabase data repositories (Auth, Queue, Service, Counter)
 ├── domain/
-│   └── queue_state_machine.dart  # All valid state transitions enforced
-└── features/
-    ├── auth/              # Login + registration
-    ├── student/           # Home, service list, queue screen, history
-    ├── staff/             # Counter screen (live queue management)
-    └── admin/             # Dashboard, service centers, services, counters, analytics
+│   └── queue_state_machine.dart  # Strict state transition validator
+├── features/
+│   ├── admin/presentation/    # Admin dashboard, management CRUD, and analytics
+│   ├── auth/presentation/     # Multi-tab unified authentication & registration
+│   ├── profile/presentation/  # User profile & credentials management
+│   ├── staff/presentation/    # Counter dispatch console
+│   └── student/presentation/  # Virtual queuing, status screens, and history
+└── shared/widgets/            # Reusable UI cards, inputs, and indicators
 ```
 
-Pattern: **View → Riverpod Provider → Repository → Supabase**
+### Queue State Machine
+All queue state transitions are verified through `QueueStateMachine` to ensure business integrity:
+```
+WAITING    ──►  CALLED    ──►  SERVING    ──►  COMPLETED
+   │                │                │
+   └──► CANCELLED   └──► NO_SHOW     └──► TRANSFERRED
+```
 
 ---
 
-## Queue State Machine
+## 🗄️ Database & Backend (`supabase/`)
 
-```
-WAITING ──► CANCELLED
-WAITING ──► CALLED
-CALLED  ──► NO_SHOW
-CALLED  ──► SERVING
-SERVING ──► COMPLETED
-SERVING ──► TRANSFERRED
-```
+Database scripts are structured sequentially inside the [`supabase/`](./supabase/) directory:
 
-Invalid transitions throw `InvalidStateTransitionException`.
-
----
-
-## EWT Algorithm
-
-**Exponential Smoothing** (adaptive prediction):
-
-```
-newAvg = α × actualDuration + (1 - α) × previousAverage
-```
-
-- α = 0.3 *(PROTOTYPE ASSUMPTION — tune after collecting real data)*
-- EWT per student = `(customersAhead / activeCounters) × avgDuration`
-- MAE should be measured to evaluate prediction accuracy
-
----
-
-## Technology Stack
-
-| Layer | Technology |
+| Script | Purpose |
 |---|---|
-| Frontend | Flutter / Dart |
-| State Management | Riverpod 2.x |
-| Navigation | GoRouter |
-| Models | Freezed + json_serializable |
-| Backend | Supabase (PostgreSQL + Realtime + Auth) |
-| Notifications | flutter_local_notifications (in-app) |
-| Charts | fl_chart |
-| Fonts | Google Fonts (Inter) |
+| [`01_schema.sql`](./supabase/01_schema.sql) | Tables, views, triggers, and Row Level Security (RLS) policies. |
+| [`02_register_rpc.sql`](./supabase/02_register_rpc.sql) | Hardened PostgreSQL RPC function enabling direct student & staff signups without email rate limits. |
+| [`03_seed_users.sql`](./supabase/03_seed_users.sql) | Seeds campus service centers, services, counters, and default testing accounts. |
+| [`04_fix_auth_users.sql`](./supabase/04_fix_auth_users.sql) | Maintenance script to clean up or reset authentication records cleanly. |
+
+### Default Credentials (from Seed)
+| Role | Identifier | Password | Access |
+|---|---|---|---|
+| **Admin** | `admin@bvcec.edu.in` | `Admin@123` | Full admin dashboard, analytics, and management |
+| **Staff (Exam)** | `STF001` | `Staff@123` | Examination Section counter |
+| **Staff (Accounts)** | `STF002` | `Staff@123` | Accounts Section counter |
+| **Student** | `21BV1A0501` | `Student@123` | Student queue portal |
 
 ---
 
-## Running Tests
+## 🚀 Getting Started
 
+### Prerequisites
+- **Flutter SDK** (`>= 3.13.0`)
+- **Dart SDK** (`>= 3.1.0`)
+- A **Supabase** project account ([supabase.com](https://supabase.com))
+
+### 1. Database Setup
+1. In your Supabase Project dashboard, open the **SQL Editor**.
+2. Run [`supabase/01_schema.sql`](./supabase/01_schema.sql).
+3. Run [`supabase/02_register_rpc.sql`](./supabase/02_register_rpc.sql).
+4. Run [`supabase/03_seed_users.sql`](./supabase/03_seed_users.sql).
+
+### 2. Configure Credentials
+Update `lib/core/constants/supabase_constants.dart` with your Supabase URL and anon public key:
+
+```dart
+class SupabaseConstants {
+  static const String supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co';
+  static const String supabaseAnonKey = 'YOUR_ANON_PUBLIC_KEY';
+}
+```
+
+### 3. Generate Freezed Code
+```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+```
+
+### 4. Run the Application
+```bash
+# Windows Desktop
+flutter run -d windows
+
+# Android Device / Emulator
+flutter run -d android
+```
+
+### 5. Running Tests
 ```bash
 flutter test
 ```
 
-Tests cover:
-- Queue state machine (all valid and invalid transitions)
-- EWT calculator (estimates, exponential smoothing convergence)
-- QueueEntryStatus parsing
+---
+
+## 📊 Estimated Waiting Time (EWT) Formula
+
+The waiting time predictor utilizes **single exponential smoothing** to adapt to counter speed dynamically without extreme volatility:
+
+$$\overline{T}_{k} = \alpha \cdot T_{\text{actual}} + (1 - \alpha) \cdot \overline{T}_{k-1}$$
+
+$$\text{EWT} = \frac{\text{Ahead in Queue}}{\text{Active Counters}} \times \overline{T}_{k}$$
+
+- $\alpha = 0.3$: Balanced smoothing factor between recent transactions and historical averages.
+- Handles multiple concurrent open counters per service.
 
 ---
 
-## Known Prototype Assumptions
+## 🛠️ Tech Stack
 
-| Assumption | Location | Action Needed |
-|---|---|---|
-| α = 0.3 for EWT smoothing | `ewt_calculator.dart` | Tune from real data |
-| Estimated service durations | DB seed / admin UI | Update from actual measurements |
-| Auth uses `@bvcec.internal` domain | `auth_repository.dart` | Keep for prototype |
-| Staff account creation requires Supabase dashboard | `counter_repository.dart` | Implement admin-side user creation |
-| Synthetic/seeded data for testing | `supabase_schema.sql` | Label clearly in report |
+- **Framework**: [Flutter](https://flutter.dev)
+- **Language**: [Dart](https://dart.dev)
+- **State Management**: [Riverpod 2.x](https://riverpod.dev)
+- **Routing**: [GoRouter](https://pub.dev/packages/go_router)
+- **Data Serialization**: [Freezed](https://pub.dev/packages/freezed) & [json_serializable](https://pub.dev/packages/json_serializable)
+- **Database & Realtime**: [Supabase](https://supabase.com)
+- **Charts & Data Viz**: [fl_chart](https://pub.dev/packages/fl_chart)
+- **Design System**: Custom Dark Theme, Inter typography, responsive layouts
 
 ---
 
-## Academic Notes
-
-- **No blockchain, cryptocurrency, face recognition, AR, IoT, or generic chatbots** — excluded per project requirements
-- Waiting-time prediction uses a documented algorithm with measurable error (MAE)
-- All state transitions are enforced server-side via RLS policies
-- Architecture supports explanation at viva: View → Provider → Repository → Backend
+## 📄 License
+Developed for academic evaluation at **Bonam Venkata Chalamayya Engineering College (Autonomous)**. All rights reserved.

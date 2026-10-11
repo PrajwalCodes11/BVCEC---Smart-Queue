@@ -63,7 +63,7 @@ class AuthRepository {
       }
       if (msg.contains('Database error querying schema') || msg.contains('unexpected_failure')) {
         throw const AuthException(
-          'User identity setup required in database. Please run the updated supabase_register_rpc.sql in Supabase SQL Editor to complete user identity linking.',
+          'User identity setup required in database. Please run the updated supabase/02_register_rpc.sql in Supabase SQL Editor to complete user identity linking.',
         );
       }
       throw AuthException('Sign-in error: $e');
@@ -153,7 +153,7 @@ class AuthRepository {
       final msg = e.toString();
       if (msg.contains('over_email_send_rate_limit') || msg.contains('rate limit')) {
         throw const AuthException(
-          'Email rate limit reached on Supabase. Please run the supabase_register_rpc.sql script in Supabase SQL Editor to enable unlimited instant registrations, or disable "Confirm email" in Supabase Auth settings.',
+          'Email rate limit reached on Supabase. Please run the supabase/02_register_rpc.sql script in Supabase SQL Editor to enable unlimited instant registrations, or disable "Confirm email" in Supabase Auth settings.',
         );
       }
       throw AuthException('Registration error: $e');
@@ -240,7 +240,7 @@ class AuthRepository {
       final msg = e.toString();
       if (msg.contains('over_email_send_rate_limit') || msg.contains('rate limit')) {
         throw const AuthException(
-          'Email rate limit reached on Supabase. Please run the supabase_register_rpc.sql script in Supabase SQL Editor to enable unlimited instant registrations, or disable "Confirm email" in Supabase Auth settings.',
+          'Email rate limit reached on Supabase. Please run the supabase/02_register_rpc.sql script in Supabase SQL Editor to enable unlimited instant registrations, or disable "Confirm email" in Supabase Auth settings.',
         );
       }
       throw AuthException('Staff registration error: $e');
