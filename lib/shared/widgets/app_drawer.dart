@@ -353,38 +353,38 @@ class AppDrawer extends ConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 8),
-                    _buildSectionHeader('PORTAL VIEWS'),
+                    _buildSectionHeader('CAMPUS ROSTERS & QUEUES'),
                     _DrawerTile(
-                      icon: Icons.point_of_sale_outlined,
-                      activeIcon: Icons.point_of_sale,
-                      title: 'Staff Counter View',
-                      subtitle: 'Inspect staff operation desk',
+                      icon: Icons.badge_outlined,
+                      activeIcon: Icons.badge,
+                      title: 'Staff Desks Roster',
+                      subtitle: 'Staff duty assignments & desk status',
                       isActive: onSelectAdminSection != null
                           ? selectedAdminSection == 3
-                          : currentPath == AppRoutes.staffCounter,
+                          : false,
                       onTap: () {
                         Navigator.pop(context);
                         if (onSelectAdminSection != null) {
                           onSelectAdminSection!(3);
-                        } else if (currentPath != AppRoutes.staffCounter) {
-                          context.go(AppRoutes.staffCounter);
+                        } else {
+                          context.go(AppRoutes.adminDashboard);
                         }
                       },
                     ),
                     _DrawerTile(
-                      icon: Icons.school_outlined,
-                      activeIcon: Icons.school,
-                      title: 'Student Queue View',
-                      subtitle: 'Inspect student ticketing interface',
+                      icon: Icons.groups_outlined,
+                      activeIcon: Icons.groups,
+                      title: 'Live Student Queues',
+                      subtitle: 'Campus-wide student waiting queue',
                       isActive: onSelectAdminSection != null
                           ? selectedAdminSection == 4
-                          : currentPath == AppRoutes.studentHome,
+                          : false,
                       onTap: () {
                         Navigator.pop(context);
                         if (onSelectAdminSection != null) {
                           onSelectAdminSection!(4);
-                        } else if (currentPath != AppRoutes.studentHome) {
-                          context.go(AppRoutes.studentHome);
+                        } else {
+                          context.go(AppRoutes.adminDashboard);
                         }
                       },
                     ),

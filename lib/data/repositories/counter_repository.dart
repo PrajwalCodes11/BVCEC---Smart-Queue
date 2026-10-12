@@ -22,6 +22,18 @@ class CounterRepository {
     }
   }
 
+  Future<List<Counter>> getAllCounters() async {
+    try {
+      final data = await _client
+          .from(SupabaseConstants.countersTable)
+          .select('*, users(full_name)')
+          .order('name');
+      return (data as List).map((e) => _parseCounter(e)).toList();
+    } catch (e) {
+      throw NetworkException('Failed to load counters: $e');
+    }
+  }
+
   Stream<List<Counter>> watchCountersForCenter(String serviceCenterId) {
     return _client
         .from(SupabaseConstants.countersTable)

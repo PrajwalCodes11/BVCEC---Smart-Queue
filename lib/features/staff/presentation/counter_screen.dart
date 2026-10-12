@@ -164,7 +164,14 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
 
     // Embedded mode (e.g. viewed inside Admin dashboard)
     if (widget.embedded) {
-      return _buildDeskBody(user, selectedCenterId, selectedCounter, queueId, serviceName);
+      return _buildDeskBody(
+        user: user,
+        selectedCenterId: selectedCenterId,
+        selectedCounter: selectedCounter,
+        queueId: queueId,
+        serviceName: serviceName,
+        isDesktop: false,
+      );
     }
 
     final isDesktop = MediaQuery.of(context).size.width >= 850;
@@ -234,7 +241,13 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                         child: _currentSection == StaffNavSection.profile
                             ? const ProfileScreen(embedded: true)
                             : _buildDeskBody(
-                                user, selectedCenterId, selectedCounter, queueId, serviceName),
+                                user: user,
+                                selectedCenterId: selectedCenterId,
+                                selectedCounter: selectedCounter,
+                                queueId: queueId,
+                                serviceName: serviceName,
+                                isDesktop: true,
+                              ),
                       ),
                     ),
                   ),
@@ -273,18 +286,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
               )
             : null,
         actions: [
-          if (selectedCounter != null && _currentSection == StaffNavSection.counterDesk)
-            _CounterStatusMenu(
-              status: selectedCounter.status,
-              onChanged: (newStatus) async {
-                await ref.read(counterRepositoryProvider).updateCounterStatus(
-                      counterId: selectedCounter.id,
-                      status: newStatus,
-                    );
-                ref.read(_selectedCounterProvider.notifier).state =
-                    selectedCounter.copyWith(status: newStatus);
-              },
-            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh Counter',
@@ -308,35 +309,43 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
           child: _currentSection == StaffNavSection.profile
               ? const ProfileScreen(embedded: true)
               : _buildDeskBody(
-                  user, selectedCenterId, selectedCounter, queueId, serviceName),
+                  user: user,
+                  selectedCenterId: selectedCenterId,
+                  selectedCounter: selectedCounter,
+                  queueId: queueId,
+                  serviceName: serviceName,
+                  isDesktop: false,
+                ),
         ),
       ),
     );
   }
 
-  Widget _buildDeskBody(
-    AppUser user,
-    String? selectedCenterId,
-    Counter? selectedCounter,
-    String? queueId,
-    String? serviceName,
-  ) {
+  Widget _buildDeskBody({
+    required AppUser user,
+    required String? selectedCenterId,
+    required Counter? selectedCounter,
+    required String? queueId,
+    required String? serviceName,
+    required bool isDesktop,
+  }) {
     return Column(
       children: [
-        _StaffHeader(
-          staffName: user.fullName,
-          counter: selectedCounter,
-          onCounterStatusChanged: selectedCounter == null
-              ? null
-              : (newStatus) async {
-                  await ref.read(counterRepositoryProvider).updateCounterStatus(
-                        counterId: selectedCounter.id,
-                        status: newStatus,
-                      );
-                  ref.read(_selectedCounterProvider.notifier).state =
-                      selectedCounter.copyWith(status: newStatus);
-                },
-        ),
+        if (!isDesktop)
+          _StaffHeader(
+            staffName: user.fullName,
+            counter: selectedCounter,
+            onCounterStatusChanged: selectedCounter == null
+                ? null
+                : (newStatus) async {
+                    await ref.read(counterRepositoryProvider).updateCounterStatus(
+                          counterId: selectedCounter.id,
+                          status: newStatus,
+                        );
+                    ref.read(_selectedCounterProvider.notifier).state =
+                        selectedCounter.copyWith(status: newStatus);
+                  },
+          ),
         if (selectedCenterId == null)
           Expanded(child: _CenterSelector())
         else if (selectedCounter == null)
@@ -1744,64 +1753,78 @@ class _DesktopStaffSidebar extends StatelessWidget {
             // Header / Brand & Toggle
             Container(
               height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: EdgeInsets.symmetric(horizontal: isExpanded ? 14 : 12),
               decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: AppColors.cardBorder, width: 1),
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppColors.staffColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
-                    ),
-                    child: const Icon(Icons.point_of_sale, color: AppColors.staffColor, size: 20),
-                  ),
-                  if (isExpanded) ...[
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'BVCEC SmartQueue',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+              child: isExpanded
+                  ? Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.staffColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
                           ),
-                          Text(
-                            'Staff Operations',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 10,
-                            ),
+                          child: const Icon(Icons.point_of_sale, color: AppColors.staffColor, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'BVCEC SmartQueue',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'Staff Operations',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.menu_open, color: AppColors.textSecondary, size: 20),
+                          tooltip: 'Collapse sidebar',
+                          onPressed: onToggleExpand,
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Tooltip(
+                        message: 'Expand sidebar',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: onToggleExpand,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.staffColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
+                            ),
+                            child: const Icon(Icons.menu, color: AppColors.staffColor, size: 20),
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                  IconButton(
-                    icon: Icon(
-                      isExpanded ? Icons.menu_open : Icons.menu,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
-                    tooltip: isExpanded ? 'Collapse sidebar' : 'Expand sidebar',
-                    onPressed: onToggleExpand,
-                  ),
-                ],
-              ),
             ),
 
             // User Info Pill

@@ -1396,64 +1396,78 @@ class _DesktopStudentSidebar extends StatelessWidget {
             // Header / Brand & Toggle
             Container(
               height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: EdgeInsets.symmetric(horizontal: isExpanded ? 14 : 12),
               decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: AppColors.cardBorder, width: 1),
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                    ),
-                    child: const Icon(Icons.school, color: AppColors.accent, size: 20),
-                  ),
-                  if (isExpanded) ...[
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'BVCEC SmartQueue',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+              child: isExpanded
+                  ? Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                           ),
-                          Text(
-                            'Student Portal',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 10,
-                            ),
+                          child: const Icon(Icons.school, color: AppColors.accent, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'BVCEC SmartQueue',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'Student Portal',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.menu_open, color: AppColors.textSecondary, size: 20),
+                          tooltip: 'Collapse sidebar',
+                          onPressed: onToggleExpand,
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Tooltip(
+                        message: 'Expand sidebar',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: onToggleExpand,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                            ),
+                            child: const Icon(Icons.menu, color: AppColors.accent, size: 20),
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                  IconButton(
-                    icon: Icon(
-                      isExpanded ? Icons.menu_open : Icons.menu,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
-                    tooltip: isExpanded ? 'Collapse sidebar' : 'Expand sidebar',
-                    onPressed: onToggleExpand,
-                  ),
-                ],
-              ),
             ),
 
             // User Info Pill

@@ -607,6 +607,23 @@ class QueueRepository {
     }
   }
 
+  /// Get all active entries across the entire campus (status: waiting, called, serving) with student, service, and counter info.
+  Future<List<QueueEntry>> getCampusActiveEntries() async {
+    try {
+      final data = await _client
+          .from(SupabaseConstants.queueEntriesTable)
+          .select('*, users(full_name, registration_number), services(name), counters(name)')
+          .inFilter('status', ['waiting', 'called', 'serving'])
+          .order('joined_at', ascending: true);
+
+      return (data as List)
+          .map((r) => QueueEntry.fromJson(_normalize(r)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Get queue entries for a student (history).
   Future<List<QueueEntry>> getStudentHistory(String userId) async {
     try {
@@ -849,7 +866,10 @@ class QueueRepository {
       result['counterName'] = (data['counters'] as Map)['name'];
     }
     if (data['users'] is Map) {
-      result['userName'] = (data['users'] as Map)['full_name'];
+      final u = data['users'] as Map;
+      final name = u['full_name'] as String? ?? 'Student';
+      final reg = u['registration_number'] as String?;
+      result['userName'] = (reg != null && reg.isNotEmpty) ? '$name • $reg' : name;
     }
 
     return result;
