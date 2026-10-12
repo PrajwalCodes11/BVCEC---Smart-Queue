@@ -288,7 +288,13 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    await _client.auth.signOut();
+    try {
+      await _client.auth.signOut(scope: SignOutScope.global);
+    } catch (_) {
+      try {
+        await _client.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {}
+    }
   }
 
   /// Fetches a user profile by user ID.

@@ -25,7 +25,7 @@ class AdminCountersScreen extends ConsumerWidget {
     final counters = ref.watch(_countersProvider(centerId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Counters')),
+      appBar: AppBar(title: const Text('Counters'), leading: const BackButton()),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context, ref),
         backgroundColor: AppColors.adminColor,

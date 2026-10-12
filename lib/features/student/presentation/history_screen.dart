@@ -31,6 +31,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Queue History'),
+        leading: const BackButton(),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

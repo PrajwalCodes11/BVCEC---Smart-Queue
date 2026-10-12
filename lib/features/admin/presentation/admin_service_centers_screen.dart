@@ -19,7 +19,7 @@ class AdminServiceCentersScreen extends ConsumerWidget {
     final centers = ref.watch(_allCentersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Service Centers')),
+      appBar: AppBar(title: const Text('Service Centers'), leading: const BackButton()),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context, ref),
         backgroundColor: AppColors.accent,

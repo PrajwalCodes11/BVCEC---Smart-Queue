@@ -592,6 +592,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
     if (confirmed == true) {
       await ref.read(authRepositoryProvider).signOut();
+      if (context.mounted) {
+        context.go(AppRoutes.login);
+      }
     }
   }
 }

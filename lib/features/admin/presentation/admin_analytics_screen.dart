@@ -76,6 +76,7 @@ class AdminAnalyticsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics'),
+        leading: const BackButton(),
         actions: [
           PopupMenuButton<_DateRange>(
             initialValue: selectedRange,

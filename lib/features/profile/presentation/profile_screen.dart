@@ -139,6 +139,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
+        leading: const BackButton(),
         actions: [
           TextButton.icon(
             onPressed: () {

@@ -43,6 +43,7 @@ class _ServiceListScreenState extends ConsumerState<ServiceListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Available Services'),
+        leading: const BackButton(),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
