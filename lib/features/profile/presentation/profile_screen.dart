@@ -9,7 +9,8 @@ import '../../../core/extensions/extensions.dart';
 import '../../../data/models/app_user.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  final bool embedded;
+  const ProfileScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -137,40 +138,77 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        leading: const BackButton(),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              setState(() {
-                if (_isEditing) {
-                  _resetControllers(user);
-                  _isEditing = false;
-                } else {
-                  _isEditing = true;
-                }
-              });
-            },
-            icon: Icon(
-              _isEditing ? Icons.close : Icons.edit_outlined,
-              size: 16,
-              color: _isEditing ? Colors.redAccent : AppColors.accent,
+      backgroundColor: widget.embedded ? Colors.transparent : null,
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('My Profile'),
+              leading: const BackButton(),
+              actions: [
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      if (_isEditing) {
+                        _resetControllers(user);
+                        _isEditing = false;
+                      } else {
+                        _isEditing = true;
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    _isEditing ? Icons.close : Icons.edit_outlined,
+                    size: 16,
+                    color: _isEditing ? Colors.redAccent : AppColors.accent,
+                  ),
+                  label: Text(
+                    _isEditing ? 'Cancel' : 'Edit',
+                    style: TextStyle(
+                      color: _isEditing ? Colors.redAccent : AppColors.accent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            label: Text(
-              _isEditing ? 'Cancel' : 'Edit',
-              style: TextStyle(
-                color: _isEditing ? Colors.redAccent : AppColors.accent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           children: [
+            if (widget.embedded)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          if (_isEditing) {
+                            _resetControllers(user);
+                            _isEditing = false;
+                          } else {
+                            _isEditing = true;
+                          }
+                        });
+                      },
+                      icon: Icon(
+                        _isEditing ? Icons.close : Icons.edit_outlined,
+                        size: 16,
+                        color: _isEditing ? Colors.redAccent : AppColors.accent,
+                      ),
+                      label: Text(
+                        _isEditing ? 'Cancel' : 'Edit Profile',
+                        style: TextStyle(
+                          color: _isEditing ? Colors.redAccent : AppColors.accent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Header Avatar Card
             _buildProfileHeader(user, roleColor),
             const SizedBox(height: 20),

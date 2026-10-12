@@ -9,10 +9,14 @@ import '../../../data/models/app_user.dart';
 
 class AppDrawer extends ConsumerWidget {
   final VoidCallback? onResetStaffFlow;
+  final ValueChanged<int>? onSelectAdminSection;
+  final int? selectedAdminSection;
 
   const AppDrawer({
     super.key,
     this.onResetStaffFlow,
+    this.onSelectAdminSection,
+    this.selectedAdminSection,
   });
 
   @override
@@ -258,12 +262,16 @@ class AppDrawer extends ConsumerWidget {
                     _DrawerTile(
                       icon: Icons.analytics_outlined,
                       activeIcon: Icons.analytics,
-                      title: 'Admin Console',
+                      title: 'Live Overview',
                       subtitle: 'Live monitor & campus stats',
-                      isActive: currentPath == AppRoutes.adminDashboard,
+                      isActive: onSelectAdminSection != null
+                          ? selectedAdminSection == 0
+                          : currentPath == AppRoutes.adminDashboard,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.adminDashboard) {
+                        if (onSelectAdminSection != null) {
+                          onSelectAdminSection!(0);
+                        } else if (currentPath != AppRoutes.adminDashboard) {
                           context.go(AppRoutes.adminDashboard);
                         }
                       },
@@ -273,10 +281,14 @@ class AppDrawer extends ConsumerWidget {
                       activeIcon: Icons.storefront,
                       title: 'Service Centers',
                       subtitle: 'Manage centers, services & counters',
-                      isActive: currentPath == AppRoutes.adminServiceCenters,
+                      isActive: onSelectAdminSection != null
+                          ? selectedAdminSection == 1
+                          : currentPath == AppRoutes.adminServiceCenters,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.adminServiceCenters) {
+                        if (onSelectAdminSection != null) {
+                          onSelectAdminSection!(1);
+                        } else if (currentPath != AppRoutes.adminServiceCenters) {
                           context.push(AppRoutes.adminServiceCenters);
                         }
                       },
@@ -286,10 +298,14 @@ class AppDrawer extends ConsumerWidget {
                       activeIcon: Icons.insights,
                       title: 'Analytics & Reports',
                       subtitle: 'Throughput, wait times & trends',
-                      isActive: currentPath == AppRoutes.adminAnalytics,
+                      isActive: onSelectAdminSection != null
+                          ? selectedAdminSection == 2
+                          : currentPath == AppRoutes.adminAnalytics,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.adminAnalytics) {
+                        if (onSelectAdminSection != null) {
+                          onSelectAdminSection!(2);
+                        } else if (currentPath != AppRoutes.adminAnalytics) {
                           context.push(AppRoutes.adminAnalytics);
                         }
                       },
@@ -301,10 +317,14 @@ class AppDrawer extends ConsumerWidget {
                       activeIcon: Icons.point_of_sale,
                       title: 'Staff Counter View',
                       subtitle: 'Inspect staff operation desk',
-                      isActive: currentPath == AppRoutes.staffCounter,
+                      isActive: onSelectAdminSection != null
+                          ? selectedAdminSection == 3
+                          : currentPath == AppRoutes.staffCounter,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.staffCounter) {
+                        if (onSelectAdminSection != null) {
+                          onSelectAdminSection!(3);
+                        } else if (currentPath != AppRoutes.staffCounter) {
                           context.go(AppRoutes.staffCounter);
                         }
                       },
@@ -314,10 +334,14 @@ class AppDrawer extends ConsumerWidget {
                       activeIcon: Icons.school,
                       title: 'Student Queue View',
                       subtitle: 'Inspect student ticketing interface',
-                      isActive: currentPath == AppRoutes.studentHome,
+                      isActive: onSelectAdminSection != null
+                          ? selectedAdminSection == 4
+                          : currentPath == AppRoutes.studentHome,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.studentHome) {
+                        if (onSelectAdminSection != null) {
+                          onSelectAdminSection!(4);
+                        } else if (currentPath != AppRoutes.studentHome) {
                           context.go(AppRoutes.studentHome);
                         }
                       },
@@ -331,10 +355,14 @@ class AppDrawer extends ConsumerWidget {
                     activeIcon: Icons.person,
                     title: 'My Profile',
                     subtitle: 'Account details & contact info',
-                    isActive: currentPath == AppRoutes.profile,
+                    isActive: (onSelectAdminSection != null && user.role == UserRole.admin)
+                        ? selectedAdminSection == 5
+                        : currentPath == AppRoutes.profile,
                     onTap: () {
                       Navigator.pop(context);
-                      if (currentPath != AppRoutes.profile) {
+                      if (onSelectAdminSection != null && user.role == UserRole.admin) {
+                        onSelectAdminSection!(5);
+                      } else if (currentPath != AppRoutes.profile) {
                         context.push(AppRoutes.profile);
                       }
                     },

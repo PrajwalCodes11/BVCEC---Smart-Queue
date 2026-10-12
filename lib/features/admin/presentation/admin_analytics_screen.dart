@@ -49,7 +49,8 @@ final _analyticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 class AdminAnalyticsScreen extends ConsumerWidget {
-  const AdminAnalyticsScreen({super.key});
+  final bool embedded;
+  const AdminAnalyticsScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,27 +75,70 @@ class AdminAnalyticsScreen extends ConsumerWidget {
             'Selected Center');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics'),
-        leading: const BackButton(),
-        actions: [
-          PopupMenuButton<_DateRange>(
-            initialValue: selectedRange,
-            tooltip: 'Date range',
-            icon: const Icon(Icons.date_range_outlined),
-            onSelected: (v) =>
-                ref.read(_analyticsDateRangeProvider.notifier).state = v,
-            itemBuilder: (_) => _DateRange.values
-                .map((r) => PopupMenuItem(
-                      value: r,
-                      child: Text(r.label),
-                    ))
-                .toList(),
-          ),
-        ],
-      ),
+      backgroundColor: embedded ? Colors.transparent : null,
+      appBar: embedded
+          ? null
+          : AppBar(
+              title: const Text('Analytics'),
+              leading: const BackButton(),
+              actions: [
+                PopupMenuButton<_DateRange>(
+                  initialValue: selectedRange,
+                  tooltip: 'Date range',
+                  icon: const Icon(Icons.date_range_outlined),
+                  onSelected: (v) =>
+                      ref.read(_analyticsDateRangeProvider.notifier).state = v,
+                  itemBuilder: (_) => _DateRange.values
+                      .map((r) => PopupMenuItem(
+                            value: r,
+                            child: Text(r.label),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ),
       body: Column(
         children: [
+          if (embedded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today, size: 16, color: AppColors.accent),
+                        const SizedBox(width: 8),
+                        DropdownButton<_DateRange>(
+                          value: selectedRange,
+                          underline: const SizedBox.shrink(),
+                          dropdownColor: AppColors.surfaceElevated,
+                          isDense: true,
+                          onChanged: (v) {
+                            if (v != null) {
+                              ref.read(_analyticsDateRangeProvider.notifier).state = v;
+                            }
+                          },
+                          items: _DateRange.values
+                              .map((r) => DropdownMenuItem(
+                                    value: r,
+                                    child: Text(r.label, style: const TextStyle(fontSize: 13)),
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _CenterPicker(
             centers: centersAsync,
             selectedId: selectedCenterId,

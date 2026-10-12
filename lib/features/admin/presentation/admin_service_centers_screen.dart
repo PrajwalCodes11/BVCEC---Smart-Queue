@@ -12,14 +12,16 @@ final _allCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
 });
 
 class AdminServiceCentersScreen extends ConsumerWidget {
-  const AdminServiceCentersScreen({super.key});
+  final bool embedded;
+  const AdminServiceCentersScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final centers = ref.watch(_allCentersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Service Centers'), leading: const BackButton()),
+      backgroundColor: embedded ? Colors.transparent : null,
+      appBar: embedded ? null : AppBar(title: const Text('Service Centers'), leading: const BackButton()),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context, ref),
         backgroundColor: AppColors.accent,
