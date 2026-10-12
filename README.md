@@ -21,6 +21,23 @@
 
 ---
 
+## 📦 Direct Downloads & Testing (Android & Windows)
+
+Pre-compiled standalone release binaries are ready for immediate testing across different mobile phones and PCs:
+
+| Platform | Build Artifact | Size | Instructions |
+|:---|:---|:---|:---|
+| **Android (Mobile Phones)** | [**`app-release.apk`**](./build/app/outputs/flutter-apk/app-release.apk) | ~55 MB | 1. Transfer to any Android phone (via WhatsApp, Drive, or USB).<br>2. Tap to install (allow *"Install unknown apps"* if prompted).<br>3. Launch and test the native Android app! |
+| **Windows (Other PCs)** | [**`Release/smartqueue.exe`**](./build/windows/x64/runner/Release/smartqueue.exe) | ~90 MB | 1. Zip the [`build/windows/x64/runner/Release/`](./build/windows/x64/runner/Release/) directory.<br>2. Copy to any other Windows PC (via pendrive or cloud).<br>3. Extract and double-click `smartqueue.exe` *(no Flutter/VS SDK required)*. |
+| **Local Wi-Fi Browser Testing** | Local Web Server | — | 1. Run `flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080`<br>2. On any phone or laptop on the same Wi-Fi, open `http://<YOUR_PC_IP>:8080`<br>*(Zero install, instant multi-device testing)*. |
+
+> [!TIP]
+> **Build Commands to recompile at any time:**
+> - Android APK: `flutter build apk --release`
+> - Windows Desktop: `flutter build windows --release`
+
+---
+
 ## ✨ Features by Role
 
 ### 🎓 Student Portal
