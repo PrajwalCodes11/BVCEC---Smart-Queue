@@ -23,18 +23,16 @@
 
 ## 📦 Direct Downloads & Testing (Android & Windows)
 
-Pre-compiled standalone release binaries are ready for immediate testing across different mobile phones and PCs:
+Official standalone release binaries are hosted on GitHub Releases for one-click downloading and testing across different mobile phones and PCs:
 
-| Platform | Build Artifact | Size | Instructions |
+| Platform | Direct Download Link | Size | Instructions |
 |:---|:---|:---|:---|
-| **Android (Mobile Phones)** | [**`app-release.apk`**](./build/app/outputs/flutter-apk/app-release.apk) | ~55 MB | 1. Transfer to any Android phone (via WhatsApp, Drive, or USB).<br>2. Tap to install (allow *"Install unknown apps"* if prompted).<br>3. Launch and test the native Android app! |
-| **Windows (Other PCs)** | [**`Release/smartqueue.exe`**](./build/windows/x64/runner/Release/smartqueue.exe) | ~90 MB | 1. Zip the [`build/windows/x64/runner/Release/`](./build/windows/x64/runner/Release/) directory.<br>2. Copy to any other Windows PC (via pendrive or cloud).<br>3. Extract and double-click `smartqueue.exe` *(no Flutter/VS SDK required)*. |
-| **Local Wi-Fi Browser Testing** | Local Web Server | — | 1. Run `flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080`<br>2. On any phone or laptop on the same Wi-Fi, open `http://<YOUR_PC_IP>:8080`<br>*(Zero install, instant multi-device testing)*. |
+| 📱 **Android (Mobile Phones)** | [**⬇️ Download `app-release.apk`**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/download/v1.0.0/app-release.apk) | 55.3 MB | 1. Click to download on your phone (or transfer via WhatsApp/Drive).<br>2. Tap to install (allow *"Install unknown apps"* if prompted).<br>3. Launch and test the native Android app! |
+| 💻 **Windows (Other PCs)** | [**⬇️ Download `smartqueue-windows-x64.zip`**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/download/v1.0.0/smartqueue-windows-x64.zip) | 12.8 MB | 1. Download and extract the ZIP folder on any Windows PC.<br>2. Double-click `smartqueue.exe` to run immediately.<br>*(Zero prerequisites — no Flutter or Visual Studio needed!)* |
+| 🌐 **Local Wi-Fi Browser Testing** | Local Web Server | — | 1. Run `flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080`<br>2. On any phone or laptop on the same Wi-Fi, open `http://<YOUR_PC_IP>:8080`<br>*(Zero install, instant multi-device testing)* |
 
-> [!TIP]
-> **Build Commands to recompile at any time:**
-> - Android APK: `flutter build apk --release`
-> - Windows Desktop: `flutter build windows --release`
+> [!NOTE]
+> View all release notes and assets directly on the [**GitHub Releases Page (v1.0.0)**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/tag/v1.0.0).
 
 ---
 
