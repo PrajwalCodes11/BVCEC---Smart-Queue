@@ -66,9 +66,11 @@ class _ServiceListScreenState extends ConsumerState<ServiceListScreen> {
         ),
         data: (allServices) {
           if (allServices.isEmpty) {
-            return const AppEmptyWidget(
+            return AppEmptyWidget(
               message: 'No services available at this center right now.',
               icon: Icons.miscellaneous_services_outlined,
+              actionLabel: 'Back to Centers',
+              onAction: () => context.pop(),
             );
           }
 

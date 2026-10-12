@@ -5,6 +5,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../../shared/widgets/app_drawer.dart';
 
 final _campusLiveStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   return ref.watch(queueRepositoryProvider).getCampusLiveStats();
@@ -19,6 +20,7 @@ class AdminDashboardScreen extends ConsumerWidget {
     final statsAsync = ref.watch(_campusLiveStatsProvider);
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Admin Console'),
         actions: [

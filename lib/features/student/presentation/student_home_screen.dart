@@ -11,6 +11,7 @@ import '../../../data/models/service.dart';
 import '../../../data/models/service_center.dart';
 import '../../../domain/queue_state_machine.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../../shared/widgets/app_drawer.dart';
 import '../providers/student_providers.dart';
 
 final _serviceCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
@@ -73,6 +74,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     }).toList();
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

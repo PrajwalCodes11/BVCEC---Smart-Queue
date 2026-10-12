@@ -81,8 +81,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.roleHome(user.role);
       }
 
-      // Role-based path guard
-      if (user != null) {
+      // Role-based path guard:
+      // Admins have supervisory access to all portals (/admin, /staff, /student).
+      // Students and Staff are restricted to their authorized portals.
+      if (user != null && user.role != UserRole.admin) {
         final path = state.matchedLocation;
         if (path.startsWith('/student') && user.role != UserRole.student) {
           return AppRoutes.roleHome(user.role);

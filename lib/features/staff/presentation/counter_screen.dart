@@ -12,6 +12,7 @@ import '../../../data/models/service.dart';
 import '../../../data/models/service_center.dart';
 import '../../../domain/queue_state_machine.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../../../shared/widgets/app_drawer.dart';
 
 // Providers for staff counter flow
 final _staffCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
@@ -56,13 +57,45 @@ class CounterScreen extends ConsumerWidget {
     final serviceName = ref.watch(_activeServiceNameProvider);
 
     return Scaffold(
+      drawer: AppDrawer(
+        onResetStaffFlow: () {
+          ref.read(_activeQueueIdProvider.notifier).state = null;
+          ref.read(_activeServiceNameProvider.notifier).state = null;
+          ref.read(_selectedCounterProvider.notifier).state = null;
+          ref.read(_selectedCenterProvider.notifier).state = null;
+        },
+      ),
       appBar: AppBar(
         title: Text(
           selectedCounter != null
               ? '${selectedCounter.name} — Staff Portal'
               : 'Counter Dashboard',
         ),
+        leading: (selectedCenterId != null || selectedCounter != null || queueId != null)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Back to previous step',
+                onPressed: () {
+                  if (queueId != null) {
+                    ref.read(_activeQueueIdProvider.notifier).state = null;
+                    ref.read(_activeServiceNameProvider.notifier).state = null;
+                  } else if (selectedCounter != null) {
+                    ref.read(_selectedCounterProvider.notifier).state = null;
+                  } else if (selectedCenterId != null) {
+                    ref.read(_selectedCenterProvider.notifier).state = null;
+                  }
+                },
+              )
+            : null,
         actions: [
+          if (selectedCenterId != null || selectedCounter != null || queueId != null)
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Open Navigation Menu',
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+              ),
+            ),
           if (queueId != null)
             IconButton(
               icon: const Icon(Icons.swap_horiz_outlined),
@@ -378,9 +411,35 @@ class _CounterSelector extends ConsumerWidget {
       error: (e, _) => AppErrorWidget(message: e.toString()),
       data: (list) {
         if (list.isEmpty) {
-          return const AppEmptyWidget(
-            message: 'No counters configured at this center. Ask Admin to add one.',
-            icon: Icons.point_of_sale_outlined,
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const AppEmptyWidget(
+                    message:
+                        'No counters configured at this center.\nAsk Admin to add one, or return to choose another center.',
+                    icon: Icons.point_of_sale_outlined,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.read(_selectedCenterProvider.notifier).state = null,
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to Service Centers'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.staffColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         return Column(
