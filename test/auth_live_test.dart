@@ -62,6 +62,53 @@ void main() {
         email: 'admin001@bvcec.internal',
         password: 'password123',
       );
+      final allUsers = await client.from('users').select();
+      print('=== ALL USERS IN DB ===');
+      for (final u in allUsers) {
+        print('  ID: ${u['id']} | Email: ${u['email']} | Reg: ${u['registration_number']} | Role: ${u['role']} | Name: ${u['full_name']}');
+      }
+
+      // Check if 22A61A0501 exists; if not, register it!
+      final hasStudent = allUsers.any((u) => u['registration_number'] == '22A61A0501');
+      if (!hasStudent) {
+        print('Registering test student 22A61A0501...');
+        try {
+          final res = await client.rpc('register_new_user', params: {
+            'p_email': '22a61a0501@bvcec.internal',
+            'p_password': 'password123',
+            'p_registration_number': '22A61A0501',
+            'p_full_name': 'Prajwal Varma',
+            'p_role': 'student',
+            'p_department': 'Computer Science & Engineering (CSE)',
+            'p_year_of_study': '3rd Year',
+            'p_phone': '9876543210',
+          });
+          print('Registered student 22A61A0501: $res');
+        } catch (e) {
+          print('Failed to register student 22A61A0501: $e');
+        }
+      }
+
+      // Check if STAFF001 exists; if not, register it!
+      final hasStaff = allUsers.any((u) => u['registration_number'] == 'STAFF001');
+      if (!hasStaff) {
+        print('Registering test staff STAFF001...');
+        try {
+          final res = await client.rpc('register_new_user', params: {
+            'p_email': 'staff001@bvcec.internal',
+            'p_password': 'password123',
+            'p_registration_number': 'STAFF001',
+            'p_full_name': 'Exam Section Staff',
+            'p_role': 'staff',
+            'p_department': 'Examination Section',
+            'p_year_of_study': null,
+            'p_phone': '9123456780',
+          });
+          print('Registered staff STAFF001: $res');
+        } catch (e) {
+          print('Failed to register staff STAFF001: $e');
+        }
+      }
       final today = DateTime.now();
       final dateStr =
           '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';

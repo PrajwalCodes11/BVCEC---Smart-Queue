@@ -34,12 +34,12 @@ void main() {
       print('  • ${u['role']}: ${u['full_name']} (Reg: ${u['registration_number']}, ID: ${u['id']})');
     }
 
-    final resolvedStaffEmail = await adminClient.rpc('get_email_for_identifier', params: {'p_identifier': '221S001'});
-    final resolvedStudentEmail = await adminClient.rpc('get_email_for_identifier', params: {'p_identifier': '24221A4562'});
+    final resolvedStaffEmail = await adminClient.rpc('get_email_for_identifier', params: {'p_identifier': 'STAFF001'});
+    final resolvedStudentEmail = await adminClient.rpc('get_email_for_identifier', params: {'p_identifier': '22A61A0501'});
     print('Resolved staff email from DB: $resolvedStaffEmail');
     print('Resolved student email from DB: $resolvedStudentEmail');
 
-    // 2. Authenticate Staff Client (Ram Prasad / 221S001)
+    // 2. Authenticate Staff Client (Exam Section Staff / STAFF001)
     final staffClient = SupabaseClient(
       SupabaseConstants.supabaseUrl,
       SupabaseConstants.supabaseAnonKey,
@@ -53,14 +53,14 @@ void main() {
     final staffQueueRepo = QueueRepository(staffClient);
     print('✓ Step 2: Staff authenticated successfully ($staffId)');
 
-    // 3. Authenticate Student Client (Prajwal Adhikari / 24221A4562)
+    // 3. Authenticate Student Client (Prajwal Varma / 22A61A0501)
     final studentClient = SupabaseClient(
       SupabaseConstants.supabaseUrl,
       SupabaseConstants.supabaseAnonKey,
     );
     
     final studentAuth = await studentClient.auth.signInWithPassword(
-      email: '24221a4562@bvcec.internal',
+      email: resolvedStudentEmail.toString(),
       password: 'password123',
     );
     final studentId = studentAuth.user!.id;

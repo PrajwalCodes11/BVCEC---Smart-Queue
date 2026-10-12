@@ -102,7 +102,7 @@ void main() {
 
     print('--> 5. Registration Method Parameter Validation Check...');
     expect(
-      () => authRepo.registerStudent(
+      authRepo.registerStudent(
         registrationNumber: 'TEST',
         fullName: 'Test',
         password: '',

@@ -80,10 +80,22 @@ class AuthRepository {
     required String email,
     String? phone,
   }) async {
-    try {
-      final normalizedEmail = email.trim().toLowerCase();
-      final normalizedRegNo = registrationNumber.trim().toUpperCase();
+    if (registrationNumber.trim().isEmpty) {
+      throw const AuthException('Registration Number cannot be empty.');
+    }
+    if (fullName.trim().isEmpty) {
+      throw const AuthException('Full Name cannot be empty.');
+    }
+    if (password.length < 6) {
+      throw const AuthException('Password must be at least 6 characters.');
+    }
+    final normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.contains('@') || !normalizedEmail.contains('.')) {
+      throw const AuthException('Please provide a valid email address.');
+    }
+    final normalizedRegNo = registrationNumber.trim().toUpperCase();
 
+    try {
       // Try RPC first for instant account creation if installed in Supabase
       try {
         final rpcRes = await _client.rpc('register_new_user', params: {
@@ -169,10 +181,22 @@ class AuthRepository {
     String? phone,
     required String password,
   }) async {
-    try {
-      final normalizedEmail = email.trim().toLowerCase();
-      final normalizedStaffId = staffId.trim().toUpperCase();
+    if (staffId.trim().isEmpty) {
+      throw const AuthException('Staff ID cannot be empty.');
+    }
+    if (fullName.trim().isEmpty) {
+      throw const AuthException('Full Name cannot be empty.');
+    }
+    if (password.length < 6) {
+      throw const AuthException('Password must be at least 6 characters.');
+    }
+    final normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.contains('@') || !normalizedEmail.contains('.')) {
+      throw const AuthException('Please provide a valid email address.');
+    }
+    final normalizedStaffId = staffId.trim().toUpperCase();
 
+    try {
       // Try RPC first for instant account creation if installed in Supabase
       try {
         final rpcRes = await _client.rpc('register_new_user', params: {
