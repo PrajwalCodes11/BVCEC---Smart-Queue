@@ -545,48 +545,66 @@ class _DrawerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: ListTile(
-          dense: true,
-          shape: RoundedRectangleBorder(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.accent.withValues(alpha: 0.12)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
+            border: isActive
+                ? Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                    width: 1,
+                  )
+                : null,
           ),
-          selected: isActive,
-          selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
-          leading: Icon(
-            isActive ? activeIcon : icon,
-            color: isActive ? AppColors.accent : AppColors.textSecondary,
-            size: 20,
-          ),
-          title: Text(
-            title,
-            style: TextStyle(
-              color: isActive ? AppColors.accent : AppColors.textPrimary,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 13,
-            ),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(
-              color: isActive
-                  ? AppColors.accent.withValues(alpha: 0.8)
-                  : AppColors.textMuted,
-              fontSize: 11,
-            ),
-          ),
-          trailing: isActive
-              ? Container(
+          child: Row(
+            children: [
+              Icon(
+                isActive ? activeIcon : icon,
+                color: isActive ? AppColors.accent : AppColors.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: isActive ? AppColors.accent : AppColors.textPrimary,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: isActive
+                            ? AppColors.accent.withValues(alpha: 0.8)
+                            : AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isActive)
+                Container(
                   width: 6,
                   height: 6,
                   decoration: const BoxDecoration(
                     color: AppColors.accent,
                     shape: BoxShape.circle,
                   ),
-                )
-              : null,
-          onTap: onTap,
+                ),
+            ],
+          ),
         ),
       ),
     );

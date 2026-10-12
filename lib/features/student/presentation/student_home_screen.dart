@@ -1611,70 +1611,93 @@ class _DesktopStudentSidebar extends StatelessWidget {
                     );
                   }
 
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? AppColors.accent.withValues(alpha: 0.12)
-                          : Colors.transparent,
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      border: isActive
-                          ? Border.all(
-                              color: AppColors.accent.withValues(alpha: 0.35),
-                              width: 1,
-                            )
-                          : null,
-                    ),
-                    child: ListTile(
-                      dense: true,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      leading: Icon(
-                        isActive ? section.activeIcon : section.icon,
-                        color: isActive ? AppColors.accent : AppColors.textSecondary,
-                        size: 20,
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              section.title,
-                              style: TextStyle(
-                                color: isActive ? Colors.white : AppColors.textPrimary,
-                                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                fontSize: 13,
+                      onTap: () => onSelectSection(section),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppColors.accent.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: isActive
+                              ? Border.all(
+                                  color: AppColors.accent.withValues(alpha: 0.35),
+                                  width: 1,
+                                )
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isActive ? section.activeIcon : section.icon,
+                              color: isActive ? AppColors.accent : AppColors.textSecondary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          section.title,
+                                          style: TextStyle(
+                                            color: isActive ? Colors.white : AppColors.textPrimary,
+                                            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (hasActiveBadge)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.accent,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            '$activeTicketCount',
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  Text(
+                                    section.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isActive ? AppColors.accent.withValues(alpha: 0.7) : AppColors.textMuted,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          if (hasActiveBadge)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$activeTicketCount',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 10,
+                            if (isActive)
+                              Container(
+                                width: 5,
+                                height: 5,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.accent,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        section.subtitle,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 10,
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      onTap: () => onSelectSection(section),
                     ),
                   );
                 }).toList(),
