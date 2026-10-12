@@ -319,7 +319,7 @@ class _DesktopSidebar extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'BVCEC SmartQueue',
+                                'SmartQueue',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
@@ -716,40 +716,90 @@ class _OverviewSection extends StatelessWidget {
               loading: () => const LinearProgressIndicator(color: AppColors.accent),
               error: (e, _) => Text('Error loading stats: $e', style: const TextStyle(color: Colors.red)),
               data: (stats) {
-                return Row(
-                  children: [
-                    _StatTile(
-                      label: 'In Line',
-                      value: '${stats['waiting'] ?? 0}',
-                      subtext: 'Waiting',
-                      color: AppColors.waiting,
-                      icon: Icons.hourglass_top,
-                    ),
-                    const SizedBox(width: 10),
-                    _StatTile(
-                      label: 'At Window',
-                      value: '${stats['serving'] ?? 0}',
-                      subtext: 'Serving',
-                      color: AppColors.serving,
-                      icon: Icons.support_agent,
-                    ),
-                    const SizedBox(width: 10),
-                    _StatTile(
-                      label: 'Announced',
-                      value: '${stats['called'] ?? 0}',
-                      subtext: 'Called',
-                      color: AppColors.called,
-                      icon: Icons.campaign,
-                    ),
-                    const SizedBox(width: 10),
-                    _StatTile(
-                      label: 'Done Today',
-                      value: '${stats['completedToday'] ?? 0}',
-                      subtext: 'Completed',
-                      color: AppColors.available,
-                      icon: Icons.check_circle_outline,
-                    ),
-                  ],
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 600;
+                    if (isNarrow) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              _StatTile(
+                                label: 'In Line',
+                                value: '${stats['waiting'] ?? 0}',
+                                subtext: 'Waiting',
+                                color: AppColors.waiting,
+                                icon: Icons.hourglass_top,
+                              ),
+                              const SizedBox(width: 10),
+                              _StatTile(
+                                label: 'At Window',
+                                value: '${stats['serving'] ?? 0}',
+                                subtext: 'Serving',
+                                color: AppColors.serving,
+                                icon: Icons.support_agent,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              _StatTile(
+                                label: 'Announced',
+                                value: '${stats['called'] ?? 0}',
+                                subtext: 'Called',
+                                color: AppColors.called,
+                                icon: Icons.campaign,
+                              ),
+                              const SizedBox(width: 10),
+                              _StatTile(
+                                label: 'Done Today',
+                                value: '${stats['completedToday'] ?? 0}',
+                                subtext: 'Completed',
+                                color: AppColors.available,
+                                icon: Icons.check_circle_outline,
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        _StatTile(
+                          label: 'In Line',
+                          value: '${stats['waiting'] ?? 0}',
+                          subtext: 'Waiting',
+                          color: AppColors.waiting,
+                          icon: Icons.hourglass_top,
+                        ),
+                        const SizedBox(width: 10),
+                        _StatTile(
+                          label: 'At Window',
+                          value: '${stats['serving'] ?? 0}',
+                          subtext: 'Serving',
+                          color: AppColors.serving,
+                          icon: Icons.support_agent,
+                        ),
+                        const SizedBox(width: 10),
+                        _StatTile(
+                          label: 'Announced',
+                          value: '${stats['called'] ?? 0}',
+                          subtext: 'Called',
+                          color: AppColors.called,
+                          icon: Icons.campaign,
+                        ),
+                        const SizedBox(width: 10),
+                        _StatTile(
+                          label: 'Done Today',
+                          value: '${stats['completedToday'] ?? 0}',
+                          subtext: 'Completed',
+                          color: AppColors.available,
+                          icon: Icons.check_circle_outline,
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -876,7 +926,7 @@ class _AdminHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 const Text(
-                  'BVCEC Queue Operations & Real-Time Campus Control Hub',
+                  'SmartQueue Real-Time Campus Control Hub',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,

@@ -301,16 +301,20 @@ class _DigitalTicketCard extends StatelessWidget {
               children: [
                 const Icon(Icons.school, size: 18, color: Colors.white70),
                 const SizedBox(width: 8),
-                const Text(
-                  'BVCEC SMARTQUEUE PASS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white70,
+                const Expanded(
+                  child: Text(
+                    'SMARTQUEUE PASS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white70,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 StatusChip(
                   label: entry.status.name.replaceAll('noShow', 'No Show').toUpperCase(),
                   color: color,

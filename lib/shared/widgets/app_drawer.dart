@@ -44,8 +44,10 @@ class AppDrawer extends ConsumerWidget {
       UserRole.admin => 'ADMINISTRATOR',
     };
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Drawer(
-      backgroundColor: AppColors.surface,
+      backgroundColor: isDark ? AppColors.surface : CreamColors.surface,
       child: SafeArea(
         child: Column(
           children: [
@@ -54,15 +56,17 @@ class AppDrawer extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    AppColors.primaryDark,
-                    AppColors.surfaceElevated,
-                  ],
+                  colors: isDark
+                      ? [AppColors.primaryDark, AppColors.surfaceElevated]
+                      : [CreamColors.primary, const Color(0xFF27272A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                border: const Border(
-                  bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? AppColors.cardBorder : CreamColors.cardBorder,
+                    width: 1,
+                  ),
                 ),
               ),
               child: Column(
@@ -91,19 +95,19 @@ class AppDrawer extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text(
-                              'BVCEC SmartQueue',
+                              'SmartQueue',
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                                letterSpacing: 0.5,
+                                letterSpacing: 0.3,
                               ),
                             ),
                             Text(
                               'Smart Campus Flow',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.textSecondary,
+                                color: Colors.white70,
                               ),
                             ),
                           ],
@@ -438,15 +442,108 @@ class AppDrawer extends ConsumerWidget {
             // ── Drawer Footer ──
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceElevated,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated,
                 border: Border(
-                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                  top: BorderSide(
+                    color: isDark ? AppColors.cardBorder : CreamColors.cardBorder,
+                    width: 1,
+                  ),
                 ),
               ),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
+                  // Theme Switcher Segmented Control
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surface : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isDark ? AppColors.cardBorder : CreamColors.cardBorder,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              ref.read(appThemeModeProvider.notifier).state = AppThemeMode.dark;
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.dark_mode_outlined,
+                                    size: 14,
+                                    color: isDark ? Colors.white : AppColors.textMuted,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Dark',
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : AppColors.textMuted,
+                                      fontWeight: isDark ? FontWeight.bold : FontWeight.w500,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              ref.read(appThemeModeProvider.notifier).state = AppThemeMode.creamyWhite;
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              decoration: BoxDecoration(
+                                color: !isDark
+                                    ? CreamColors.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.light_mode_outlined,
+                                    size: 14,
+                                    color: !isDark ? Colors.white : AppColors.textMuted,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Creamy White',
+                                    style: TextStyle(
+                                      color: !isDark ? Colors.white : AppColors.textMuted,
+                                      fontWeight: !isDark ? FontWeight.bold : FontWeight.w500,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: double.infinity,
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.cancelled,

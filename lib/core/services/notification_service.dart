@@ -65,7 +65,7 @@ class NotificationService {
               Platform.isLinux)) {
         const androidDetails = AndroidNotificationDetails(
           'smartqueue_channel',
-          'BVCEC SmartQueue Notifications',
+          'SmartQueue Notifications',
           channelDescription:
               'Notifications for token calls, queue status, and wait times',
           importance: Importance.max,

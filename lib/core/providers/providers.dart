@@ -5,6 +5,7 @@ import '../../data/repositories/service_repository.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/repositories/counter_repository.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../theme/app_theme.dart';
 
 // ─── Supabase Client ──────────────────────────────────────────────────────
 
@@ -59,3 +60,9 @@ final currentUserProvider = Provider<AppUser>((ref) {
         createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       );
 });
+
+/// Dynamic theme mode provider (dark vs creamy white)
+final appThemeModeProvider = StateProvider<AppThemeMode>((ref) {
+  return AppThemeMode.dark;
+});
+

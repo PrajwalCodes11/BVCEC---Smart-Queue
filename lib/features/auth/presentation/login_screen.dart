@@ -246,9 +246,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         const SizedBox(height: 18),
         const Text(
-          'BVCEC SmartQueue',
+          'SmartQueue',
           style: TextStyle(
-            fontSize: 26,
+            fontSize: 28,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
             letterSpacing: -0.5,

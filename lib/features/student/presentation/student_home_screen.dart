@@ -219,13 +219,15 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'BVCEC SmartQueue',
+                  'SmartQueue',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.3),
                 ),
               ],
             ),
             Text(
               _currentSection.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
@@ -842,7 +844,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Sign Out'),
         content: const Text(
-          'Are you sure you want to sign out of BVCEC SmartQueue?',
+          'Are you sure you want to sign out of SmartQueue?',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
@@ -926,18 +928,26 @@ class _BannerMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
-        ),
-      ],
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1012,6 +1022,8 @@ class _ActiveTicketCard extends StatelessWidget {
                     Text(
                       entry.serviceName ?? 'Campus Service',
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -1025,12 +1037,16 @@ class _ActiveTicketCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          statusText,
-                          style: TextStyle(
-                            color: badgeColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                        Expanded(
+                          child: Text(
+                            statusText,
+                            style: TextStyle(
+                              color: badgeColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -1038,16 +1054,19 @@ class _ActiveTicketCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isCalled ? AppColors.called : AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onPressed: () {
                   context.push(AppRoutes.queue.replaceFirst(':entryId', entry.id));
                 },
-                icon: const Icon(Icons.arrow_forward, size: 16),
-                label: const Text('View Ticket', style: TextStyle(fontSize: 13)),
+                icon: const Icon(Icons.arrow_forward, size: 14),
+                label: const Text('View', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -1422,7 +1441,7 @@ class _DesktopStudentSidebar extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'BVCEC SmartQueue',
+                                'SmartQueue',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
@@ -1797,7 +1816,7 @@ class _StudentWorkspaceTopBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'BVCEC SmartQueue  /  ${currentSection.title}',
+                      'SmartQueue  /  ${currentSection.title}',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,

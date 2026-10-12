@@ -389,6 +389,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
           selectedCounter != null
               ? '${selectedCounter.name} — ${assignedCenter?.name ?? 'Staff'}'
               : _currentSection.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         leading: canStepBack
             ? IconButton(
@@ -1646,7 +1648,7 @@ class _QueueStatsHeader extends StatelessWidget {
               const SizedBox(width: 8),
               _MiniStat(label: 'Serving', count: servingCount, color: AppColors.serving),
               const SizedBox(width: 8),
-              _MiniStat(label: 'Served Today', count: todayServedCount, color: AppColors.available),
+              _MiniStat(label: 'Served', count: todayServedCount, color: AppColors.available),
             ],
           ),
         ],
@@ -1964,15 +1966,19 @@ class _CurrentlyCalledSection extends StatelessWidget {
             children: [
               const Icon(Icons.campaign, color: AppColors.called, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'STUDENT CALLED — Awaiting Arrival',
-                style: TextStyle(
-                  color: AppColors.called,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
+              const Expanded(
+                child: Text(
+                  'STUDENT CALLED — Awaiting Arrival',
+                  style: TextStyle(
+                    color: AppColors.called,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 'Token #${entry.tokenNumber.toString().padLeft(3, '0')}',
                 style: const TextStyle(
@@ -2216,7 +2222,7 @@ class _DesktopStaffSidebar extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'BVCEC SmartQueue',
+                                'SmartQueue',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
@@ -2597,8 +2603,8 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
                     Flexible(
                       child: Text(
                         counter != null
-                            ? 'BVCEC SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${counter!.name}'
-                            : 'BVCEC SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${currentSection.title}',
+                            ? 'SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${counter!.name}'
+                            : 'SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${currentSection.title}',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -2801,40 +2807,90 @@ class _DepartmentQueueMonitorState
                     .where((e) => e.status == QueueEntryStatus.serving)
                     .length;
 
-                return Row(
-                  children: [
-                    _StatTile(
-                      label: 'In Line',
-                      value: '${entries.length}',
-                      subtext: 'Department',
-                      color: AppColors.staffColor,
-                      icon: Icons.groups,
-                    ),
-                    const SizedBox(width: 10),
-                    _StatTile(
-                      label: 'Waiting',
-                      value: '$waitingCount',
-                      subtext: 'Turn Line',
-                      color: AppColors.waiting,
-                      icon: Icons.hourglass_top,
-                    ),
-                    const SizedBox(width: 10),
-                    _StatTile(
-                      label: 'Called',
-                      value: '$calledCount',
-                      subtext: 'At Desks',
-                      color: AppColors.called,
-                      icon: Icons.campaign,
-                    ),
-                    const SizedBox(width: 10),
-                    _StatTile(
-                      label: 'Serving',
-                      value: '$servingCount',
-                      subtext: 'In Session',
-                      color: AppColors.serving,
-                      icon: Icons.support_agent,
-                    ),
-                  ],
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 600;
+                    if (isNarrow) {
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              _StatTile(
+                                label: 'In Line',
+                                value: '${entries.length}',
+                                subtext: 'Department',
+                                color: AppColors.staffColor,
+                                icon: Icons.groups,
+                              ),
+                              const SizedBox(width: 10),
+                              _StatTile(
+                                label: 'Waiting',
+                                value: '$waitingCount',
+                                subtext: 'Turn Line',
+                                color: AppColors.waiting,
+                                icon: Icons.hourglass_top,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              _StatTile(
+                                label: 'Called',
+                                value: '$calledCount',
+                                subtext: 'At Desks',
+                                color: AppColors.called,
+                                icon: Icons.campaign,
+                              ),
+                              const SizedBox(width: 10),
+                              _StatTile(
+                                label: 'Serving',
+                                value: '$servingCount',
+                                subtext: 'In Session',
+                                color: AppColors.serving,
+                                icon: Icons.support_agent,
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        _StatTile(
+                          label: 'In Line',
+                          value: '${entries.length}',
+                          subtext: 'Department',
+                          color: AppColors.staffColor,
+                          icon: Icons.groups,
+                        ),
+                        const SizedBox(width: 10),
+                        _StatTile(
+                          label: 'Waiting',
+                          value: '$waitingCount',
+                          subtext: 'Turn Line',
+                          color: AppColors.waiting,
+                          icon: Icons.hourglass_top,
+                        ),
+                        const SizedBox(width: 10),
+                        _StatTile(
+                          label: 'Called',
+                          value: '$calledCount',
+                          subtext: 'At Desks',
+                          color: AppColors.called,
+                          icon: Icons.campaign,
+                        ),
+                        const SizedBox(width: 10),
+                        _StatTile(
+                          label: 'Serving',
+                          value: '$servingCount',
+                          subtext: 'In Session',
+                          color: AppColors.serving,
+                          icon: Icons.support_agent,
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             ),

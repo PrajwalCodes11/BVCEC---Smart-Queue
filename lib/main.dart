@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/providers/providers.dart';
 
 import 'core/services/notification_service.dart';
 
@@ -30,9 +31,13 @@ class SmartQueueApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
+
     return MaterialApp.router(
-      title: 'BVCEC SmartQueue',
-      theme: AppTheme.darkTheme,
+      title: 'SmartQueue',
+      theme: AppTheme.creamyWhiteTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode == AppThemeMode.creamyWhite ? ThemeMode.light : ThemeMode.dark,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

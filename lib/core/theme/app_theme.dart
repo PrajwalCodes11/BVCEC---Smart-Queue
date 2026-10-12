@@ -39,6 +39,33 @@ class AppColors {
   static const Color offline = Color(0xFF9E9E9E);
 }
 
+enum AppThemeMode {
+  dark,
+  creamyWhite,
+}
+
+class CreamColors {
+  // Background: Warm luxury creamy white
+  static const Color background = Color(0xFFFAF7F2);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceElevated = Color(0xFFF3EFEA);
+  static const Color cardBorder = Color(0xFFE5DFD5);
+
+  // Black / Deep Charcoal text
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color textMuted = Color(0xFF6B7280);
+
+  // Contrast primary: Deep Rich Jet Black
+  static const Color primary = Color(0xFF18181B);
+  static const Color primaryLight = Color(0xFF27272A);
+  static const Color primaryDark = Color(0xFF09090B);
+
+  // Accent: Elegant Deep Teal
+  static const Color accent = Color(0xFF0F766E);
+  static const Color accentLight = Color(0xFF14B8A6);
+}
+
 class AppTheme {
   static ThemeData get darkTheme {
     final base = ThemeData.dark();
@@ -142,6 +169,114 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surfaceElevated,
         contentTextStyle: GoogleFonts.inter(color: AppColors.textPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  static ThemeData get creamyWhiteTheme {
+    final base = ThemeData.light();
+    return base.copyWith(
+      scaffoldBackgroundColor: CreamColors.background,
+      colorScheme: const ColorScheme.light(
+        primary: CreamColors.primary,
+        secondary: CreamColors.accent,
+        surface: CreamColors.surface,
+        error: AppColors.cancelled,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: CreamColors.textPrimary,
+        onError: Colors.white,
+      ),
+      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
+        bodyColor: CreamColors.textPrimary,
+        displayColor: CreamColors.textPrimary,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: CreamColors.surface,
+        foregroundColor: CreamColors.textPrimary,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: GoogleFonts.inter(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: CreamColors.textPrimary,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: CreamColors.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: CreamColors.cardBorder, width: 1),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: CreamColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: CreamColors.primary,
+          side: const BorderSide(color: CreamColors.cardBorder),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: CreamColors.surfaceElevated,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: CreamColors.cardBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: CreamColors.cardBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: CreamColors.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.cancelled),
+        ),
+        labelStyle: const TextStyle(color: CreamColors.textSecondary),
+        hintStyle: const TextStyle(color: CreamColors.textMuted),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: CreamColors.surfaceElevated,
+        labelStyle: const TextStyle(color: CreamColors.textPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: CreamColors.cardBorder,
+        thickness: 1,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: CreamColors.surface,
+        selectedItemColor: CreamColors.primary,
+        unselectedItemColor: CreamColors.textMuted,
+        type: BottomNavigationBarType.fixed,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: CreamColors.primary,
+        contentTextStyle: GoogleFonts.inter(color: Colors.white),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
       ),
