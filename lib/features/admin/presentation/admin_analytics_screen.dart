@@ -35,12 +35,15 @@ final _analyticsCenterIdProvider = StateProvider<String>((ref) => 'all');
 final _analyticsDateRangeProvider =
     StateProvider<_DateRange>((ref) => _DateRange.month);
 
-final _analyticsProvider = FutureProvider.family<Map<String, dynamic>,
-    ({String centerId, DateTime from, DateTime to})>((ref, params) async {
+final _analyticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final centerId = ref.watch(_analyticsCenterIdProvider);
+  final range = ref.watch(_analyticsDateRangeProvider);
+  final now = DateTime.now();
+  final from = now.subtract(Duration(days: range.days));
   return ref.watch(queueRepositoryProvider).getAnalytics(
-        serviceCenterId: params.centerId == 'all' ? null : params.centerId,
-        fromDate: params.from,
-        toDate: params.to,
+        serviceCenterId: centerId == 'all' ? null : centerId,
+        fromDate: from,
+        toDate: now,
       );
 });
 
@@ -97,7 +100,6 @@ class AdminAnalyticsScreen extends ConsumerWidget {
           ),
           Expanded(
             child: _AnalyticsContent(
-              centerId: selectedCenterId,
               centerName: centerName,
               range: selectedRange,
             ),
@@ -179,32 +181,27 @@ class _CenterPicker extends ConsumerWidget {
 
 // ── Analytics content ─────────────────────────────────────────────────────────
 class _AnalyticsContent extends ConsumerWidget {
-  final String centerId;
   final String centerName;
   final _DateRange range;
   const _AnalyticsContent({
-    required this.centerId,
     required this.centerName,
     required this.range,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
-    final params = (
-      centerId: centerId,
-      from: now.subtract(Duration(days: range.days)),
-      to: now,
-    );
-    final analytics = ref.watch(_analyticsProvider(params));
+    final analytics = ref.watch(_analyticsProvider);
 
     return RefreshIndicator(
       color: AppColors.accent,
-      onRefresh: () => ref.refresh(_analyticsProvider(params).future),
+      onRefresh: () => ref.refresh(_analyticsProvider.future),
       child: analytics.when(
         loading: () =>
             const AppLoadingWidget(message: 'Computing analytics...'),
-        error: (e, _) => AppErrorWidget(message: e.toString()),
+        error: (e, _) => AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.refresh(_analyticsProvider),
+        ),
         data: (data) => SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
