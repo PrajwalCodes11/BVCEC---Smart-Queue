@@ -68,6 +68,16 @@ class CounterRepository {
     required String staffId,
   }) async {
     try {
+      // Unassign any counter previously held by this staff member
+      await _client
+          .from(SupabaseConstants.countersTable)
+          .update({
+            'assigned_staff_id': null,
+            'status': 'offline',
+          })
+          .eq('assigned_staff_id', staffId);
+
+      // Assign and activate the selected counter
       await _client
           .from(SupabaseConstants.countersTable)
           .update({

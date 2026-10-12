@@ -261,7 +261,7 @@ class AppDrawer extends ConsumerWidget {
 
                   // Staff Section
                   if (user.role == UserRole.staff) ...[
-                    _buildSectionHeader('STAFF DESK'),
+                    _buildSectionHeader('STAFF DESK & WORKSPACE'),
                     _DrawerTile(
                       icon: Icons.point_of_sale_outlined,
                       activeIcon: Icons.point_of_sale,
@@ -282,8 +282,8 @@ class AppDrawer extends ConsumerWidget {
                     _DrawerTile(
                       icon: Icons.swap_horiz_outlined,
                       activeIcon: Icons.swap_horiz,
-                      title: 'Switch Service Center',
-                      subtitle: 'Change your assigned center',
+                      title: 'Switch Desk / Counter',
+                      subtitle: 'Change counter in your department',
                       isActive: onSelectStaffSection != null
                           ? selectedStaffSection == 1
                           : false,
@@ -291,8 +291,42 @@ class AppDrawer extends ConsumerWidget {
                         Navigator.pop(context);
                         if (onSelectStaffSection != null) {
                           onSelectStaffSection!(1);
-                        } else if (onResetStaffFlow != null) {
-                          onResetStaffFlow!();
+                        } else {
+                          context.go(AppRoutes.staffCounter);
+                        }
+                      },
+                    ),
+                    _DrawerTile(
+                      icon: Icons.groups_outlined,
+                      activeIcon: Icons.groups,
+                      title: 'Department Queue',
+                      subtitle: 'Live queue line in your department',
+                      isActive: onSelectStaffSection != null
+                          ? selectedStaffSection == 2
+                          : false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (onSelectStaffSection != null) {
+                          onSelectStaffSection!(2);
+                        } else {
+                          context.go(AppRoutes.staffCounter);
+                        }
+                      },
+                    ),
+                    _DrawerTile(
+                      icon: Icons.insights_outlined,
+                      activeIcon: Icons.insights,
+                      title: 'Shift & Performance',
+                      subtitle: 'Today’s served tickets & metrics',
+                      isActive: onSelectStaffSection != null
+                          ? selectedStaffSection == 3
+                          : false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (onSelectStaffSection != null) {
+                          onSelectStaffSection!(3);
+                        } else {
+                          context.go(AppRoutes.staffCounter);
                         }
                       },
                     ),
@@ -399,7 +433,7 @@ class AppDrawer extends ConsumerWidget {
                     subtitle: 'Account details & contact info',
                     isActive: (onSelectAdminSection != null && user.role == UserRole.admin && selectedAdminSection == 5) ||
                         (onSelectStudentSection != null && user.role == UserRole.student && selectedStudentSection == 3) ||
-                        (onSelectStaffSection != null && user.role == UserRole.staff && selectedStaffSection == 2) ||
+                        (onSelectStaffSection != null && user.role == UserRole.staff && selectedStaffSection == 4) ||
                         currentPath == AppRoutes.profile,
                     onTap: () {
                       Navigator.pop(context);
@@ -408,7 +442,7 @@ class AppDrawer extends ConsumerWidget {
                       } else if (onSelectStudentSection != null && user.role == UserRole.student) {
                         onSelectStudentSection!(3);
                       } else if (onSelectStaffSection != null && user.role == UserRole.staff) {
-                        onSelectStaffSection!(2);
+                        onSelectStaffSection!(4);
                       } else if (currentPath != AppRoutes.profile) {
                         context.push(AppRoutes.profile);
                       }

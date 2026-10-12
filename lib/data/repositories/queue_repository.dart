@@ -624,6 +624,51 @@ class QueueRepository {
     }
   }
 
+  /// Get active queue entries for a specific department / service center.
+  Future<List<QueueEntry>> getCenterActiveEntries(String centerId) async {
+    try {
+      final queues = await _client
+          .from(SupabaseConstants.queuesTable)
+          .select('id')
+          .eq('service_center_id', centerId);
+      final queueIds = (queues as List).map((q) => q['id'] as String).toList();
+      if (queueIds.isEmpty) return [];
+
+      final data = await _client
+          .from(SupabaseConstants.queueEntriesTable)
+          .select('*, users(full_name, registration_number), services(name), counters(name)')
+          .inFilter('queue_id', queueIds)
+          .inFilter('status', ['waiting', 'called', 'serving'])
+          .order('token_number', ascending: true);
+
+      return (data as List)
+          .map((r) => QueueEntry.fromJson(_normalize(r)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Get today's served/completed entries for a staff member.
+  Future<List<QueueEntry>> getStaffTodayCompletedEntries(String staffId) async {
+    try {
+      final todayStr = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+      final data = await _client
+          .from(SupabaseConstants.queueEntriesTable)
+          .select('*, users(full_name, registration_number), services(name), counters(name)')
+          .eq('status', 'completed')
+          .gte('completed_at', '$todayStr 00:00:00+00')
+          .order('completed_at', ascending: false)
+          .limit(50);
+
+      return (data as List)
+          .map((r) => QueueEntry.fromJson(_normalize(r)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Get queue entries for a student (history).
   Future<List<QueueEntry>> getStudentHistory(String userId) async {
     try {

@@ -17,11 +17,43 @@ import '../../../shared/widgets/app_drawer.dart';
 import '../../profile/presentation/profile_screen.dart';
 
 // Providers for staff counter flow
-final _staffCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
-  return ref.watch(serviceRepositoryProvider).getActiveServiceCenters();
-});
+// Providers for staff counter flow
+final _staffAssignedCenterProvider = FutureProvider<ServiceCenter?>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  final serviceRepo = ref.watch(serviceRepositoryProvider);
+  final counterRepo = ref.watch(counterRepositoryProvider);
 
-final _selectedCenterProvider = StateProvider<String?>((ref) => null);
+  final activeCenters = await serviceRepo.getActiveServiceCenters();
+  if (activeCenters.isEmpty) return null;
+
+  // 1. Check if admin assigned this staff member to any counter
+  try {
+    final allCounters = await counterRepo.getAllCounters();
+    final assignedCounter =
+        allCounters.where((c) => c.assignedStaffId == user.id).firstOrNull;
+    if (assignedCounter != null) {
+      final center = activeCenters
+          .where((c) => c.id == assignedCounter.serviceCenterId)
+          .firstOrNull;
+      if (center != null) return center;
+    }
+  } catch (_) {}
+
+  // 2. Match user's registered department with active service centers
+  final userDept = user.department?.trim().toLowerCase();
+  if (userDept != null && userDept.isNotEmpty) {
+    final matched = activeCenters.where((c) {
+      final cName = c.name.toLowerCase();
+      return cName == userDept ||
+          cName.contains(userDept) ||
+          userDept.contains(cName);
+    }).firstOrNull;
+    if (matched != null) return matched;
+  }
+
+  // 3. Fallback to first active center
+  return activeCenters.first;
+});
 
 final _countersStreamProvider =
     StreamProvider.family<List<Counter>, String>((ref, centerId) {
@@ -36,6 +68,16 @@ final _waitingEntriesStreamProvider =
 final _centerServicesProvider =
     FutureProvider.family<List<Service>, String>((ref, centerId) async {
   return ref.watch(serviceRepositoryProvider).getServicesForCenter(centerId);
+});
+
+final _departmentActiveEntriesProvider =
+    FutureProvider.family<List<QueueEntry>, String>((ref, centerId) async {
+  return ref.watch(queueRepositoryProvider).getCenterActiveEntries(centerId);
+});
+
+final _staffTodayCompletedEntriesProvider =
+    FutureProvider.family<List<QueueEntry>, String>((ref, staffId) async {
+  return ref.watch(queueRepositoryProvider).getStaffTodayCompletedEntries(staffId);
 });
 
 final _selectedCounterProvider = StateProvider<Counter?>((ref) => null);
@@ -55,17 +97,31 @@ enum StaffNavSection {
     icon: Icons.point_of_sale_outlined,
     activeIcon: Icons.point_of_sale,
   ),
-  switchCenter(
-    title: 'Switch Service Center',
-    shortTitle: 'Switch Counter',
-    subtitle: 'Reassign or change your service center and counter',
+  switchCounter(
+    title: 'Switch Desk / Counter',
+    shortTitle: 'Switch Desk',
+    subtitle: 'Switch or select counter inside your department',
     icon: Icons.swap_horiz_outlined,
     activeIcon: Icons.swap_horiz,
+  ),
+  departmentQueue(
+    title: 'Department Queue',
+    shortTitle: 'Dept Queue',
+    subtitle: 'Live student queues in your department',
+    icon: Icons.groups_outlined,
+    activeIcon: Icons.groups,
+  ),
+  shiftAnalytics(
+    title: 'Shift & Performance',
+    shortTitle: 'Shift Report',
+    subtitle: 'Today\'s served tickets and shift metrics',
+    icon: Icons.insights_outlined,
+    activeIcon: Icons.insights,
   ),
   profile(
     title: 'Staff Profile',
     shortTitle: 'Profile',
-    subtitle: 'Staff credentials and account settings',
+    subtitle: 'Staff credentials and department info',
     icon: Icons.person_outline,
     activeIcon: Icons.person,
   );
@@ -97,27 +153,27 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
   StaffNavSection _currentSection = StaffNavSection.counterDesk;
   bool _isSidebarExpanded = true;
 
-  void _resetStaffFlow() {
-    ref.read(_activeQueueIdProvider.notifier).state = null;
-    ref.read(_activeServiceNameProvider.notifier).state = null;
-    ref.read(_selectedCounterProvider.notifier).state = null;
-    ref.read(_selectedCenterProvider.notifier).state = null;
-    setState(() => _currentSection = StaffNavSection.counterDesk);
-  }
-
   void _stepBack() {
+    if (_currentSection != StaffNavSection.counterDesk) {
+      setState(() => _currentSection = StaffNavSection.counterDesk);
+      return;
+    }
     final queueId = ref.read(_activeQueueIdProvider);
     final selectedCounter = ref.read(_selectedCounterProvider);
-    final selectedCenterId = ref.read(_selectedCenterProvider);
 
     if (queueId != null) {
       ref.read(_activeQueueIdProvider.notifier).state = null;
       ref.read(_activeServiceNameProvider.notifier).state = null;
     } else if (selectedCounter != null) {
       ref.read(_selectedCounterProvider.notifier).state = null;
-    } else if (selectedCenterId != null) {
-      ref.read(_selectedCenterProvider.notifier).state = null;
     }
+  }
+
+  void _resetToDeskSelection() {
+    ref.read(_activeQueueIdProvider.notifier).state = null;
+    ref.read(_activeServiceNameProvider.notifier).state = null;
+    ref.read(_selectedCounterProvider.notifier).state = null;
+    setState(() => _currentSection = StaffNavSection.counterDesk);
   }
 
   Future<void> _handleSignOut(BuildContext context) async {
@@ -152,21 +208,75 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
     }
   }
 
+  Future<void> _onSelectCounter(
+      Counter counter, String centerId, AppUser user) async {
+    try {
+      await ref.read(counterRepositoryProvider).assignStaff(
+            counterId: counter.id,
+            staffId: user.id,
+          );
+      ref.read(_selectedCounterProvider.notifier).state = counter.copyWith(
+        assignedStaffId: user.id,
+        assignedStaffName: user.fullName,
+        status: CounterStatus.available,
+      );
+      ref.invalidate(_countersStreamProvider(centerId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Switched to ${counter.name} (${counter.status.name.toUpperCase()})'),
+            backgroundColor: AppColors.available,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        setState(() => _currentSection = StaffNavSection.counterDesk);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to switch desk: $e'),
+            backgroundColor: AppColors.cancelled,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final selectedCenterId = ref.watch(_selectedCenterProvider);
+    final assignedCenterAsync = ref.watch(_staffAssignedCenterProvider);
     final selectedCounter = ref.watch(_selectedCounterProvider);
     final queueId = ref.watch(_activeQueueIdProvider);
     final serviceName = ref.watch(_activeServiceNameProvider);
 
-    final canStepBack = selectedCenterId != null || selectedCounter != null || queueId != null;
+    final assignedCenter = assignedCenterAsync.value;
 
-    // Embedded mode (e.g. viewed inside Admin dashboard)
+    // Listen to counters to auto-assign active counter if held by user
+    if (assignedCenter != null) {
+      ref.listen<AsyncValue<List<Counter>>>(
+          _countersStreamProvider(assignedCenter.id), (previous, next) {
+        if (ref.read(_selectedCounterProvider) == null && next.hasValue) {
+          final myCounter = next.value
+              ?.where((c) => c.assignedStaffId == user.id)
+              .firstOrNull;
+          if (myCounter != null) {
+            ref.read(_selectedCounterProvider.notifier).state = myCounter;
+          }
+        }
+      });
+    }
+
+    final canStepBack = _currentSection != StaffNavSection.counterDesk ||
+        selectedCounter != null ||
+        queueId != null;
+
     if (widget.embedded) {
-      return _buildDeskBody(
+      return _buildSectionView(
         user: user,
-        selectedCenterId: selectedCenterId,
+        assignedCenterAsync: assignedCenterAsync,
         selectedCounter: selectedCounter,
         queueId: queueId,
         serviceName: serviceName,
@@ -184,16 +294,13 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
             // Desktop Collapsible/Expandable Sidebar
             _DesktopStaffSidebar(
               user: user,
+              assignedCenter: assignedCenter,
               currentSection: _currentSection,
               isExpanded: _isSidebarExpanded,
-              onToggleExpand: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
-              onSelectSection: (section) {
-                if (section == StaffNavSection.switchCenter) {
-                  _resetStaffFlow();
-                } else {
-                  setState(() => _currentSection = section);
-                }
-              },
+              onToggleExpand: () =>
+                  setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+              onSelectSection: (section) =>
+                  setState(() => _currentSection = section),
               onSignOut: () => _handleSignOut(context),
             ),
 
@@ -205,13 +312,18 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                   _StaffWorkspaceTopBar(
                     currentSection: _currentSection,
                     user: user,
+                    assignedCenter: assignedCenter,
                     counter: selectedCounter,
-                    canStepBack: canStepBack && _currentSection == StaffNavSection.counterDesk,
+                    canStepBack: canStepBack,
                     onStepBack: _stepBack,
+                    onSwitchDesk: () => setState(
+                        () => _currentSection = StaffNavSection.switchCounter),
                     onCounterStatusChanged: selectedCounter == null
                         ? null
                         : (newStatus) async {
-                            await ref.read(counterRepositoryProvider).updateCounterStatus(
+                            await ref
+                                .read(counterRepositoryProvider)
+                                .updateCounterStatus(
                                   counterId: selectedCounter.id,
                                   status: newStatus,
                                 );
@@ -219,11 +331,18 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                                 selectedCounter.copyWith(status: newStatus);
                           },
                     onRefresh: () {
-                      ref.invalidate(_staffCentersProvider);
-                      if (selectedCenterId != null) {
-                        ref.invalidate(_countersStreamProvider(selectedCenterId));
-                        ref.invalidate(_centerServicesProvider(selectedCenterId));
+                      ref.invalidate(_staffAssignedCenterProvider);
+                      if (assignedCenter != null) {
+                        ref.invalidate(
+                            _countersStreamProvider(assignedCenter.id));
+                        ref.invalidate(
+                            _centerServicesProvider(assignedCenter.id));
+                        ref.invalidate(_departmentActiveEntriesProvider(
+                            assignedCenter.id));
                       }
+                      ref.invalidate(
+                          _staffTodayCompletedEntriesProvider(user.id));
+                      ref.invalidate(_todayServedCountProvider(user.id));
                       if (queueId != null) {
                         ref.invalidate(_waitingEntriesStreamProvider(queueId));
                       }
@@ -238,16 +357,14 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                       switchOutCurve: Curves.easeIn,
                       child: KeyedSubtree(
                         key: ValueKey(_currentSection),
-                        child: _currentSection == StaffNavSection.profile
-                            ? const ProfileScreen(embedded: true)
-                            : _buildDeskBody(
-                                user: user,
-                                selectedCenterId: selectedCenterId,
-                                selectedCounter: selectedCounter,
-                                queueId: queueId,
-                                serviceName: serviceName,
-                                isDesktop: true,
-                              ),
+                        child: _buildSectionView(
+                          user: user,
+                          assignedCenterAsync: assignedCenterAsync,
+                          selectedCounter: selectedCounter,
+                          queueId: queueId,
+                          serviceName: serviceName,
+                          isDesktop: true,
+                        ),
                       ),
                     ),
                   ),
@@ -264,21 +381,19 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
       drawer: AppDrawer(
         selectedStaffSection: _currentSection.index,
         onSelectStaffSection: (idx) {
-          if (idx == 1) {
-            _resetStaffFlow();
-          } else {
+          if (idx >= 0 && idx < StaffNavSection.values.length) {
             setState(() => _currentSection = StaffNavSection.values[idx]);
           }
         },
-        onResetStaffFlow: _resetStaffFlow,
+        onResetStaffFlow: _resetToDeskSelection,
       ),
       appBar: AppBar(
         title: Text(
           selectedCounter != null
-              ? '${selectedCounter.name} — Staff'
-              : 'Counter Operations',
+              ? '${selectedCounter.name} — ${assignedCenter?.name ?? 'Staff'}'
+              : _currentSection.title,
         ),
-        leading: (canStepBack && _currentSection == StaffNavSection.counterDesk)
+        leading: canStepBack
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: 'Back to previous step',
@@ -286,15 +401,27 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
               )
             : null,
         actions: [
+          if (selectedCounter != null &&
+              _currentSection == StaffNavSection.counterDesk)
+            IconButton(
+              icon: const Icon(Icons.swap_horiz),
+              tooltip: 'Switch Desk',
+              onPressed: () => setState(
+                  () => _currentSection = StaffNavSection.switchCounter),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Counter',
+            tooltip: 'Refresh Counter Data',
             onPressed: () {
-              ref.invalidate(_staffCentersProvider);
-              if (selectedCenterId != null) {
-                ref.invalidate(_countersStreamProvider(selectedCenterId));
-                ref.invalidate(_centerServicesProvider(selectedCenterId));
+              ref.invalidate(_staffAssignedCenterProvider);
+              if (assignedCenter != null) {
+                ref.invalidate(_countersStreamProvider(assignedCenter.id));
+                ref.invalidate(_centerServicesProvider(assignedCenter.id));
+                ref.invalidate(
+                    _departmentActiveEntriesProvider(assignedCenter.id));
               }
+              ref.invalidate(_staffTodayCompletedEntriesProvider(user.id));
+              ref.invalidate(_todayServedCountProvider(user.id));
               if (queueId != null) {
                 ref.invalidate(_waitingEntriesStreamProvider(queueId));
               }
@@ -306,24 +433,86 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
         duration: const Duration(milliseconds: 200),
         child: KeyedSubtree(
           key: ValueKey(_currentSection),
-          child: _currentSection == StaffNavSection.profile
-              ? const ProfileScreen(embedded: true)
-              : _buildDeskBody(
-                  user: user,
-                  selectedCenterId: selectedCenterId,
-                  selectedCounter: selectedCounter,
-                  queueId: queueId,
-                  serviceName: serviceName,
-                  isDesktop: false,
-                ),
+          child: _buildSectionView(
+            user: user,
+            assignedCenterAsync: assignedCenterAsync,
+            selectedCounter: selectedCounter,
+            queueId: queueId,
+            serviceName: serviceName,
+            isDesktop: false,
+          ),
         ),
       ),
     );
   }
 
+  Widget _buildSectionView({
+    required AppUser user,
+    required AsyncValue<ServiceCenter?> assignedCenterAsync,
+    required Counter? selectedCounter,
+    required String? queueId,
+    required String? serviceName,
+    required bool isDesktop,
+  }) {
+    return assignedCenterAsync.when(
+      loading: () =>
+          const AppLoadingWidget(message: 'Loading department assignment...'),
+      error: (e, _) =>
+          AppErrorWidget(message: 'Failed to resolve department: $e'),
+      data: (assignedCenter) {
+        if (assignedCenter == null) {
+          return const Center(
+            child: AppEmptyWidget(
+              message:
+                  'No active department assignment found. Please contact campus admin.',
+              icon: Icons.domain_disabled,
+            ),
+          );
+        }
+
+        switch (_currentSection) {
+          case StaffNavSection.switchCounter:
+            return _DepartmentCounterSelector(
+              assignedCenter: assignedCenter,
+              currentCounter: selectedCounter,
+              user: user,
+              onCounterSelected: (counter) =>
+                  _onSelectCounter(counter, assignedCenter.id, user),
+            );
+
+          case StaffNavSection.departmentQueue:
+            return _DepartmentQueueMonitor(
+              centerId: assignedCenter.id,
+              centerName: assignedCenter.name,
+            );
+
+          case StaffNavSection.shiftAnalytics:
+            return _StaffShiftAnalyticsView(
+              user: user,
+              counter: selectedCounter,
+              assignedCenter: assignedCenter,
+            );
+
+          case StaffNavSection.profile:
+            return const ProfileScreen(embedded: true);
+
+          case StaffNavSection.counterDesk:
+            return _buildDeskBody(
+              user: user,
+              assignedCenter: assignedCenter,
+              selectedCounter: selectedCounter,
+              queueId: queueId,
+              serviceName: serviceName,
+              isDesktop: isDesktop,
+            );
+        }
+      },
+    );
+  }
+
   Widget _buildDeskBody({
     required AppUser user,
-    required String? selectedCenterId,
+    required ServiceCenter assignedCenter,
     required Counter? selectedCounter,
     required String? queueId,
     required String? serviceName,
@@ -335,10 +524,13 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
           _StaffHeader(
             staffName: user.fullName,
             counter: selectedCounter,
+            departmentName: assignedCenter.name,
             onCounterStatusChanged: selectedCounter == null
                 ? null
                 : (newStatus) async {
-                    await ref.read(counterRepositoryProvider).updateCounterStatus(
+                    await ref
+                        .read(counterRepositoryProvider)
+                        .updateCounterStatus(
                           counterId: selectedCounter.id,
                           status: newStatus,
                         );
@@ -346,15 +538,21 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                         selectedCounter.copyWith(status: newStatus);
                   },
           ),
-        if (selectedCenterId == null)
-          Expanded(child: _CenterSelector())
-        else if (selectedCounter == null)
-          Expanded(child: _CounterSelector(centerId: selectedCenterId))
+        if (selectedCounter == null)
+          Expanded(
+            child: _DepartmentCounterSelector(
+              assignedCenter: assignedCenter,
+              currentCounter: null,
+              user: user,
+              onCounterSelected: (counter) =>
+                  _onSelectCounter(counter, assignedCenter.id, user),
+            ),
+          )
         else if (queueId == null)
           Expanded(
             child: _QueueActivator(
               counter: selectedCounter,
-              centerId: selectedCenterId,
+              centerId: assignedCenter.id,
             ),
           )
         else
@@ -373,11 +571,13 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
 class _StaffHeader extends StatelessWidget {
   final String staffName;
   final Counter? counter;
+  final String departmentName;
   final ValueChanged<CounterStatus>? onCounterStatusChanged;
 
   const _StaffHeader({
     required this.staffName,
     this.counter,
+    required this.departmentName,
     this.onCounterStatusChanged,
   });
 
@@ -436,12 +636,14 @@ class _StaffHeader extends StatelessWidget {
                 ),
                 Text(
                   counter != null
-                      ? 'Assigned to ${counter!.name}'
-                      : 'Staff Member On Duty',
+                      ? 'Stationed at ${counter!.name} • $departmentName'
+                      : 'On Duty • $departmentName',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 12,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -543,142 +745,376 @@ class _CounterStatusMenu extends StatelessWidget {
   }
 }
 
-class _CenterSelector extends ConsumerWidget {
+class _DepartmentCounterSelector extends ConsumerWidget {
+  final ServiceCenter assignedCenter;
+  final Counter? currentCounter;
+  final AppUser user;
+  final ValueChanged<Counter> onCounterSelected;
+
+  const _DepartmentCounterSelector({
+    required this.assignedCenter,
+    required this.currentCounter,
+    required this.user,
+    required this.onCounterSelected,
+  });
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final centers = ref.watch(_staffCentersProvider);
-    return centers.when(
-      loading: () => const AppLoadingWidget(message: 'Loading centers...'),
-      error: (e, _) => AppErrorWidget(message: e.toString()),
-      data: (list) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Text('Step 1: Select Service Center',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+    final countersAsync = ref.watch(_countersStreamProvider(assignedCenter.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Assigned Section Header Banner
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.cardBorder),
           ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: list.length,
-              itemBuilder: (_, i) => ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.staffColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.store_outlined, color: AppColors.staffColor),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.staffColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
                 ),
-                title: Text(list[i].name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(list[i].description, maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () =>
-                    ref.read(_selectedCenterProvider.notifier).state = list[i].id,
+                child: const Icon(Icons.domain, color: AppColors.staffColor, size: 24),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CounterSelector extends ConsumerWidget {
-  final String centerId;
-  const _CounterSelector({required this.centerId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final counters = ref.watch(_countersStreamProvider(centerId));
-    return counters.when(
-      loading: () => const AppLoadingWidget(message: 'Loading counters...'),
-      error: (e, _) => AppErrorWidget(message: e.toString()),
-      data: (list) {
-        if (list.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const AppEmptyWidget(
-                    message:
-                        'No counters configured at this center.\nAsk Admin to add one, or return to choose another center.',
-                    icon: Icons.point_of_sale_outlined,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        ref.read(_selectedCenterProvider.notifier).state = null,
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Back to Service Centers'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.staffColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            assignedCenter.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.4)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.lock, size: 10, color: Colors.greenAccent),
+                              SizedBox(width: 4),
+                              Text(
+                                'ASSIGNED SECTION',
+                                style: TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'You are authorized to switch between counters within your assigned department only.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Row(
-                children: [
-                  const Text('Step 2: Select Your Counter',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () =>
-                        ref.read(_selectedCenterProvider.notifier).state = null,
-                    icon: const Icon(Icons.arrow_back, size: 14),
-                    label: const Text('Change Center', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
+            ],
+          ),
+        ),
+
+        // Section Title & Counter Count
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+          child: Row(
+            children: [
+              const Text(
+                'Available Counters & Desks',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
               ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: list.length,
-                itemBuilder: (_, i) {
-                  final c = list[i];
-                  return ListTile(
-                    leading: Icon(
-                      Icons.point_of_sale,
-                      color: c.status == CounterStatus.available
-                          ? AppColors.available
-                          : c.status == CounterStatus.serving
-                              ? AppColors.serving
-                              : AppColors.paused,
+              const Spacer(),
+              if (currentCounter != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.staffColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle, size: 12, color: AppColors.staffColor),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Current: ${currentCounter!.name}',
+                        style: const TextStyle(
+                          color: AppColors.staffColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Counters List
+        Expanded(
+          child: countersAsync.when(
+            loading: () => const AppLoadingWidget(message: 'Loading department counters...'),
+            error: (e, _) => AppErrorWidget(message: e.toString()),
+            data: (counters) {
+              if (counters.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.storefront_outlined, size: 48, color: AppColors.textMuted),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No counters configured in ${assignedCenter.name}.',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Contact campus admin to configure desks for this department.',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
-                    title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: StatusChip(
-                      label: c.status.name.toUpperCase(),
-                      color: c.status == CounterStatus.available
-                          ? AppColors.available
-                          : c.status == CounterStatus.serving
-                              ? AppColors.serving
-                              : AppColors.paused,
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                itemCount: counters.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (ctx, i) {
+                  final counter = counters[i];
+                  final isCurrent = currentCounter?.id == counter.id || counter.assignedStaffId == user.id;
+                  final isOccupiedByOther = counter.assignedStaffId != null && counter.assignedStaffId != user.id;
+
+                  final (statusColor, statusText) = switch (counter.status) {
+                    CounterStatus.available => (Colors.greenAccent, 'AVAILABLE'),
+                    CounterStatus.serving => (Colors.blueAccent, 'SERVING'),
+                    CounterStatus.paused => (Colors.orangeAccent, 'ON BREAK'),
+                    CounterStatus.offline => (Colors.redAccent, 'OFFLINE'),
+                  };
+
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? AppColors.staffColor.withValues(alpha: 0.1)
+                          : AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isCurrent
+                            ? AppColors.staffColor
+                            : AppColors.cardBorder,
+                        width: isCurrent ? 1.5 : 1,
+                      ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () =>
-                        ref.read(_selectedCounterProvider.notifier).state = c,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? AppColors.staffColor.withValues(alpha: 0.2)
+                                : AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.point_of_sale,
+                            color: isCurrent ? AppColors.staffColor : AppColors.textSecondary,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    counter.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  if (isCurrent) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.staffColor.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'YOUR DESK',
+                                        style: TextStyle(
+                                          color: AppColors.staffColor,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              if (isOccupiedByOther)
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person, size: 13, color: AppColors.textMuted),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Stationed: ${counter.assignedStaffName ?? 'Colleague'}',
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else if (isCurrent)
+                                const Row(
+                                  children: [
+                                    Icon(Icons.check, size: 13, color: AppColors.staffColor),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Stationed & Ready for duty',
+                                      style: TextStyle(
+                                        color: AppColors.staffColor,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                const Row(
+                                  children: [
+                                    Icon(Icons.event_seat_outlined, size: 13, color: AppColors.textSecondary),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Vacant Desk — Available to occupy',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.circle, size: 6, color: statusColor),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (isCurrent)
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.staffColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  minimumSize: Size.zero,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.play_arrow, size: 14),
+                                label: const Text('Operate Desk', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                onPressed: () => onCounterSelected(counter),
+                              )
+                            else
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: isOccupiedByOther ? AppColors.textSecondary : AppColors.staffColor,
+                                  side: BorderSide(
+                                    color: isOccupiedByOther
+                                        ? AppColors.cardBorder
+                                        : AppColors.staffColor.withValues(alpha: 0.6),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  minimumSize: Size.zero,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.swap_horiz, size: 14),
+                                label: Text(
+                                  isOccupiedByOther ? 'Reassign to Me' : 'Switch to Desk',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                onPressed: () => onCounterSelected(counter),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   );
                 },
-              ),
-            ),
-          ],
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1718,6 +2154,7 @@ class _QueueEntryTile extends StatelessWidget {
 
 class _DesktopStaffSidebar extends StatelessWidget {
   final AppUser user;
+  final ServiceCenter? assignedCenter;
   final StaffNavSection currentSection;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
@@ -1726,6 +2163,7 @@ class _DesktopStaffSidebar extends StatelessWidget {
 
   const _DesktopStaffSidebar({
     required this.user,
+    this.assignedCenter,
     required this.currentSection,
     required this.isExpanded,
     required this.onToggleExpand,
@@ -1738,9 +2176,10 @@ class _DesktopStaffSidebar extends StatelessWidget {
     final width = isExpanded ? 250.0 : 72.0;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOutCubic,
       width: width,
+      clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -1748,281 +2187,316 @@ class _DesktopStaffSidebar extends StatelessWidget {
         ),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            // Header / Brand & Toggle
-            Container(
-              height: 64,
-              padding: EdgeInsets.symmetric(horizontal: isExpanded ? 14 : 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: AppColors.cardBorder, width: 1),
-                ),
-              ),
-              child: isExpanded
-                  ? Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: AppColors.staffColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
-                          ),
-                          child: const Icon(Icons.point_of_sale, color: AppColors.staffColor, size: 20),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'BVCEC SmartQueue',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.2,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                'Staff Operations',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.menu_open, color: AppColors.textSecondary, size: 20),
-                          tooltip: 'Collapse sidebar',
-                          onPressed: onToggleExpand,
-                        ),
-                      ],
-                    )
-                  : Center(
-                      child: Tooltip(
-                        message: 'Expand sidebar',
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: onToggleExpand,
-                          child: Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: AppColors.staffColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
-                            ),
-                            child: const Icon(Icons.menu, color: AppColors.staffColor, size: 20),
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
-
-            // User Info Pill
-            if (isExpanded)
+        child: SizedBox(
+          width: 250,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header / Brand & Toggle
               Container(
-                margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder),
+                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AppColors.staffColor.withValues(alpha: 0.25),
-                      child: Text(
-                        user.fullName.initials,
-                        style: const TextStyle(
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: onToggleExpand,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: AppColors.staffColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.staffColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.point_of_sale,
                           color: AppColors.staffColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          size: 20,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.fullName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: isExpanded ? 1.0 : 0.0,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'BVCEC SmartQueue',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: AppColors.staffColor.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'STAFF',
-                                  style: TextStyle(
-                                    color: AppColors.staffColor,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
+                            Text(
+                              assignedCenter?.name ?? 'Staff Operations',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 10,
                               ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                'On Duty',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: isExpanded ? 1.0 : 0.0,
+                      child: IconButton(
+                        icon: const Icon(Icons.menu_open,
+                            color: AppColors.textSecondary, size: 20),
+                        tooltip: 'Collapse sidebar',
+                        onPressed: onToggleExpand,
                       ),
                     ),
                   ],
                 ),
               ),
 
-            const SizedBox(height: 6),
+              // User Info Pill
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 200),
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                firstChild: Container(
+                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor:
+                            AppColors.staffColor.withValues(alpha: 0.25),
+                        child: Text(
+                          user.fullName.initials,
+                          style: const TextStyle(
+                            color: AppColors.staffColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.fullName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.staffColor
+                                        .withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'STAFF',
+                                    style: TextStyle(
+                                      color: AppColors.staffColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    assignedCenter?.name ??
+                                        user.department ??
+                                        'On Duty',
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                secondChild: const SizedBox(height: 6),
+              ),
 
-            // Navigation Items List
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                children: StaffNavSection.values.map((section) {
-                  final isActive = currentSection == section;
-
-                  if (!isExpanded) {
+              // Navigation Items List
+              Expanded(
+                child: ListView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  children: StaffNavSection.values.map((section) {
+                    final isActive = currentSection == section;
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Tooltip(
-                        message: section.title,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: () => onSelectSection(section),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? AppColors.staffColor.withValues(alpha: 0.15)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              border: isActive
-                                  ? Border.all(
-                                      color: AppColors.staffColor.withValues(alpha: 0.4),
-                                      width: 1,
-                                    )
-                                  : null,
-                            ),
-                            child: Icon(
-                              isActive ? section.activeIcon : section.icon,
-                              color: isActive ? AppColors.staffColor : AppColors.textSecondary,
-                              size: 20,
-                            ),
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => onSelectSection(section),
+                        child: Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? AppColors.staffColor.withValues(alpha: 0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            border: isActive
+                                ? Border.all(
+                                    color: AppColors.staffColor
+                                        .withValues(alpha: 0.4),
+                                    width: 1,
+                                  )
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 50,
+                                alignment: Alignment.center,
+                                child: Icon(
+                                  isActive ? section.activeIcon : section.icon,
+                                  color: isActive
+                                      ? AppColors.staffColor
+                                      : AppColors.textSecondary,
+                                  size: 20,
+                                ),
+                              ),
+                              Expanded(
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 180),
+                                  opacity: isExpanded ? 1.0 : 0.0,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          section.title,
+                                          style: TextStyle(
+                                            color: isActive
+                                                ? Colors.white
+                                                : AppColors.textPrimary,
+                                            fontWeight: isActive
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          section.subtitle,
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 10,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     );
-                  }
-
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? AppColors.staffColor.withValues(alpha: 0.12)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      border: isActive
-                          ? Border.all(
-                              color: AppColors.staffColor.withValues(alpha: 0.35),
-                              width: 1,
-                            )
-                          : null,
-                    ),
-                    child: ListTile(
-                      dense: true,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      leading: Icon(
-                        isActive ? section.activeIcon : section.icon,
-                        color: isActive ? AppColors.staffColor : AppColors.textSecondary,
-                        size: 20,
-                      ),
-                      title: Text(
-                        section.title,
-                        style: TextStyle(
-                          color: isActive ? Colors.white : AppColors.textPrimary,
-                          fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                          fontSize: 13,
-                        ),
-                      ),
-                      subtitle: Text(
-                        section.subtitle,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 10,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () => onSelectSection(section),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-
-            // Sidebar Footer: Sign Out
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                  }).toList(),
                 ),
               ),
-              child: isExpanded
-                  ? OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.cancelled,
-                        side: BorderSide(
-                          color: AppColors.cancelled.withValues(alpha: 0.5),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+
+              // Sidebar Footer: Sign Out
+              Container(
+                height: 64,
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: AppColors.cardBorder, width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: onSignOut,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.logout,
+                            color: AppColors.cancelled, size: 20),
+                      ),
+                    ),
+                    Expanded(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: isExpanded ? 1.0 : 0.0,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.cancelled,
+                            side: BorderSide(
+                              color: AppColors.cancelled.withValues(alpha: 0.5),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: onSignOut,
+                          child: const Text('Sign Out',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
                       ),
-                      onPressed: onSignOut,
-                      icon: const Icon(Icons.logout, size: 16),
-                      label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
-                    )
-                  : IconButton(
-                      tooltip: 'Sign Out',
-                      icon: const Icon(Icons.logout, color: AppColors.cancelled, size: 20),
-                      onPressed: onSignOut,
                     ),
-            ),
-          ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2034,18 +2508,22 @@ class _DesktopStaffSidebar extends StatelessWidget {
 class _StaffWorkspaceTopBar extends StatelessWidget {
   final StaffNavSection currentSection;
   final AppUser user;
+  final ServiceCenter? assignedCenter;
   final Counter? counter;
   final bool canStepBack;
   final VoidCallback onStepBack;
+  final VoidCallback onSwitchDesk;
   final ValueChanged<CounterStatus>? onCounterStatusChanged;
   final VoidCallback onRefresh;
 
   const _StaffWorkspaceTopBar({
     required this.currentSection,
     required this.user,
+    this.assignedCenter,
     required this.counter,
     required this.canStepBack,
     required this.onStepBack,
+    required this.onSwitchDesk,
     required this.onCounterStatusChanged,
     required this.onRefresh,
   });
@@ -2065,7 +2543,8 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
         children: [
           if (canStepBack) ...[
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary, size: 20),
+              icon: const Icon(Icons.arrow_back,
+                  color: AppColors.textSecondary, size: 20),
               tooltip: 'Previous Step',
               onPressed: onStepBack,
             ),
@@ -2089,15 +2568,19 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      counter != null
-                          ? 'BVCEC SmartQueue  /  ${counter!.name}'
-                          : 'BVCEC SmartQueue  /  ${currentSection.title}',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.2,
+                    Flexible(
+                      child: Text(
+                        counter != null
+                            ? 'BVCEC SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${counter!.name}'
+                            : 'BVCEC SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${currentSection.title}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -2105,7 +2588,7 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   counter != null
-                      ? 'Active service desk for ${counter!.name}'
+                      ? 'Active service desk for ${counter!.name} • ${assignedCenter?.name ?? ''}'
                       : currentSection.subtitle,
                   style: const TextStyle(
                     fontSize: 11,
@@ -2117,6 +2600,27 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
               ],
             ),
           ),
+
+          // Switch Desk Fast Action Button
+          if (counter != null) ...[
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.staffColor,
+                side: BorderSide(
+                    color: AppColors.staffColor.withValues(alpha: 0.5)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: Size.zero,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.swap_horiz, size: 14),
+              label: const Text('Switch Desk',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              onPressed: onSwitchDesk,
+            ),
+            const SizedBox(width: 10),
+          ],
 
           // Counter Status Menu (when assigned to a counter)
           if (counter != null && onCounterStatusChanged != null) ...[
@@ -2161,13 +2665,978 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
 
           const SizedBox(width: 10),
 
-          // Single authoritative Refresh Button (no duplicate buttons!)
+          // Single authoritative Refresh Button
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.textSecondary, size: 20),
+            icon: const Icon(Icons.refresh,
+                color: AppColors.textSecondary, size: 20),
             tooltip: 'Refresh Counter Data',
             onPressed: onRefresh,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Department Queue Monitor ─────────────────────────────────────────────────
+
+class _DepartmentQueueMonitor extends ConsumerStatefulWidget {
+  final String centerId;
+  final String centerName;
+
+  const _DepartmentQueueMonitor({
+    required this.centerId,
+    required this.centerName,
+  });
+
+  @override
+  ConsumerState<_DepartmentQueueMonitor> createState() =>
+      _DepartmentQueueMonitorState();
+}
+
+class _DepartmentQueueMonitorState
+    extends ConsumerState<_DepartmentQueueMonitor> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  QueueEntryStatus? _statusFilter;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeEntriesAsync =
+        ref.watch(_departmentActiveEntriesProvider(widget.centerId));
+
+    return RefreshIndicator(
+      color: AppColors.staffColor,
+      onRefresh: () async {
+        ref.invalidate(_departmentActiveEntriesProvider(widget.centerId));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.staffColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.groups_outlined,
+                      color: AppColors.staffColor, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${widget.centerName} — Queue Line',
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
+                      ),
+                      const Text(
+                        'Live student line and ticket progress across this department',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Metrics Summary
+            activeEntriesAsync.when(
+              loading: () =>
+                  const LinearProgressIndicator(color: AppColors.staffColor),
+              error: (e, _) => Text('Error loading queues: $e',
+                  style: const TextStyle(color: Colors.red)),
+              data: (entries) {
+                final waitingCount = entries
+                    .where((e) => e.status == QueueEntryStatus.waiting)
+                    .length;
+                final calledCount = entries
+                    .where((e) => e.status == QueueEntryStatus.called)
+                    .length;
+                final servingCount = entries
+                    .where((e) => e.status == QueueEntryStatus.serving)
+                    .length;
+
+                return Row(
+                  children: [
+                    _StatTile(
+                      label: 'In Line',
+                      value: '${entries.length}',
+                      subtext: 'Department',
+                      color: AppColors.staffColor,
+                      icon: Icons.groups,
+                    ),
+                    const SizedBox(width: 10),
+                    _StatTile(
+                      label: 'Waiting',
+                      value: '$waitingCount',
+                      subtext: 'Turn Line',
+                      color: AppColors.waiting,
+                      icon: Icons.hourglass_top,
+                    ),
+                    const SizedBox(width: 10),
+                    _StatTile(
+                      label: 'Called',
+                      value: '$calledCount',
+                      subtext: 'At Desks',
+                      color: AppColors.called,
+                      icon: Icons.campaign,
+                    ),
+                    const SizedBox(width: 10),
+                    _StatTile(
+                      label: 'Serving',
+                      value: '$servingCount',
+                      subtext: 'In Session',
+                      color: AppColors.serving,
+                      icon: Icons.support_agent,
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            const SizedBox(height: 20),
+
+            // Search Bar
+            TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText:
+                    'Search by student name, registration number, or token #...',
+                hintStyle:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                prefixIcon: const Icon(Icons.search,
+                    color: AppColors.staffColor, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() {
+                          _searchCtrl.clear();
+                          _searchQuery = '';
+                        }),
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: AppColors.staffColor, width: 1.5),
+                ),
+              ),
+              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+            ),
+            const SizedBox(height: 14),
+
+            // Status Filter Chips
+            activeEntriesAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (e, st) => const SizedBox.shrink(),
+              data: (entries) {
+                final waitingCount = entries
+                    .where((e) => e.status == QueueEntryStatus.waiting)
+                    .length;
+                final calledCount = entries
+                    .where((e) => e.status == QueueEntryStatus.called)
+                    .length;
+                final servingCount = entries
+                    .where((e) => e.status == QueueEntryStatus.serving)
+                    .length;
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'All Active (${entries.length})',
+                        isSelected: _statusFilter == null,
+                        color: AppColors.staffColor,
+                        onTap: () => setState(() => _statusFilter = null),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Waiting ($waitingCount)',
+                        isSelected: _statusFilter == QueueEntryStatus.waiting,
+                        color: AppColors.waiting,
+                        onTap: () => setState(
+                            () => _statusFilter = QueueEntryStatus.waiting),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Called ($calledCount)',
+                        isSelected: _statusFilter == QueueEntryStatus.called,
+                        color: AppColors.called,
+                        onTap: () => setState(
+                            () => _statusFilter = QueueEntryStatus.called),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Serving ($servingCount)',
+                        isSelected: _statusFilter == QueueEntryStatus.serving,
+                        color: AppColors.serving,
+                        onTap: () => setState(
+                            () => _statusFilter = QueueEntryStatus.serving),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 18),
+
+            // Queue Entries List
+            activeEntriesAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.staffColor)),
+              ),
+              error: (e, _) => Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cancelled.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Error loading department queues: $e',
+                    style: const TextStyle(color: Colors.red)),
+              ),
+              data: (entries) {
+                final filtered = entries.where((e) {
+                  if (_statusFilter != null && e.status != _statusFilter) {
+                    return false;
+                  }
+                  if (_searchQuery.isNotEmpty) {
+                    final q = _searchQuery.toLowerCase();
+                    final tokenStr = '#${e.tokenNumber}'.toLowerCase();
+                    final rawToken = '${e.tokenNumber}';
+                    final studentName = (e.userName ?? '').toLowerCase();
+                    final serviceName = (e.serviceName ?? '').toLowerCase();
+                    final deskName = (e.counterName ?? '').toLowerCase();
+                    if (!tokenStr.contains(q) &&
+                        !rawToken.contains(q) &&
+                        !studentName.contains(q) &&
+                        !serviceName.contains(q) &&
+                        !deskName.contains(q)) {
+                      return false;
+                    }
+                  }
+                  return true;
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 48, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.people_outline,
+                            size: 48, color: AppColors.textMuted),
+                        const SizedBox(height: 12),
+                        Text(
+                          _searchQuery.isNotEmpty
+                              ? 'No queue tickets match "$_searchQuery"'
+                              : 'No students currently waiting in this department',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Queue entries update automatically as students join queues',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (ctx, i) {
+                    final entry = filtered[i];
+                    return _DepartmentStudentQueueCard(entry: entry);
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DepartmentStudentQueueCard extends StatelessWidget {
+  final QueueEntry entry;
+  const _DepartmentStudentQueueCard({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final (badgeColor, statusLabel, icon) = switch (entry.status) {
+      QueueEntryStatus.waiting => (
+          AppColors.waiting,
+          'WAITING IN LINE',
+          Icons.hourglass_top
+        ),
+      QueueEntryStatus.called => (
+          AppColors.called,
+          'CALLED TO DESK',
+          Icons.campaign
+        ),
+      QueueEntryStatus.serving => (
+          AppColors.serving,
+          'CURRENTLY SERVING',
+          Icons.support_agent
+        ),
+      _ => (AppColors.textMuted, 'OTHER', Icons.circle),
+    };
+
+    final waitMinutes = DateTime.now().difference(entry.joinedAt).inMinutes;
+    final waitText =
+        waitMinutes < 1 ? 'Just joined' : 'Waiting for ${waitMinutes}m';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: entry.status == QueueEntryStatus.called
+              ? AppColors.called.withValues(alpha: 0.6)
+              : AppColors.cardBorder,
+          width: entry.status == QueueEntryStatus.called ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Token Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              '#${entry.tokenNumber}',
+              style: TextStyle(
+                color: badgeColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Student & Queue Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.userName ?? 'Student',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: Colors.white),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (entry.priority > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'PRIORITY',
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  entry.serviceName ?? 'Department Service',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      entry.counterName != null
+                          ? Icons.point_of_sale
+                          : Icons.desk_outlined,
+                      size: 13,
+                      color: entry.counterName != null
+                          ? AppColors.staffColor
+                          : AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      entry.counterName != null
+                          ? 'Desk: ${entry.counterName}'
+                          : 'Desk: Not yet assigned',
+                      style: TextStyle(
+                        color: entry.counterName != null
+                            ? AppColors.staffColor
+                            : AppColors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.access_time,
+                        size: 12, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text(
+                      waitText,
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Status Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: badgeColor, size: 13),
+                const SizedBox(width: 5),
+                Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Staff Shift Analytics View ───────────────────────────────────────────────
+
+class _StaffShiftAnalyticsView extends ConsumerWidget {
+  final AppUser user;
+  final Counter? counter;
+  final ServiceCenter assignedCenter;
+
+  const _StaffShiftAnalyticsView({
+    required this.user,
+    required this.counter,
+    required this.assignedCenter,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final servedCountAsync = ref.watch(_todayServedCountProvider(user.id));
+    final completedEntriesAsync =
+        ref.watch(_staffTodayCompletedEntriesProvider(user.id));
+
+    return RefreshIndicator(
+      color: AppColors.staffColor,
+      onRefresh: () async {
+        ref.invalidate(_todayServedCountProvider(user.id));
+        ref.invalidate(_staffTodayCompletedEntriesProvider(user.id));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.staffColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.insights,
+                      color: AppColors.staffColor, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Shift Summary & Performance',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
+                      ),
+                      Text(
+                        'Duty activity metrics for ${user.fullName} (${assignedCenter.name})',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Metrics Cards
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_outline,
+                                color: Colors.greenAccent, size: 20),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    Colors.greenAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text('TODAY',
+                                  style: TextStyle(
+                                      color: Colors.greenAccent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        servedCountAsync.when(
+                          loading: () => const Text('...',
+                              style: TextStyle(
+                                  fontSize: 26, fontWeight: FontWeight.bold)),
+                          error: (e, st) => const Text('0',
+                              style: TextStyle(
+                                  fontSize: 26, fontWeight: FontWeight.bold)),
+                          data: (count) => Text('$count',
+                              style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white)),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('Tickets Served',
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.point_of_sale,
+                                color: AppColors.staffColor, size: 20),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.staffColor
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                counter != null
+                                    ? counter!.status.name.toUpperCase()
+                                    : 'NO DESK',
+                                style: const TextStyle(
+                                    color: AppColors.staffColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          counter != null ? counter!.name : 'Unassigned',
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('Current Active Desk',
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Completed tickets log section
+            Row(
+              children: [
+                const Icon(Icons.history,
+                    color: AppColors.textSecondary, size: 18),
+                const SizedBox(width: 8),
+                const Text(
+                  'Today\'s Completed Tickets Log',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white),
+                ),
+                const Spacer(),
+                completedEntriesAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, st) => const SizedBox.shrink(),
+                  data: (entries) => Text(
+                    '${entries.length} completed',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            completedEntriesAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child:
+                      CircularProgressIndicator(color: AppColors.staffColor),
+                ),
+              ),
+              error: (e, _) => Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cancelled.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Error loading completed tickets: $e',
+                    style: const TextStyle(color: Colors.red)),
+              ),
+              data: (entries) {
+                if (entries.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 40, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.assignment_turned_in_outlined,
+                            size: 44, color: AppColors.textMuted),
+                        SizedBox(height: 10),
+                        Text(
+                          'No tickets completed yet during this shift',
+                          style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Tickets completed at your counter today will appear here in chronological order.',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 11),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: entries.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
+                  itemBuilder: (ctx, i) {
+                    final entry = entries[i];
+                    final completedTimeStr = entry.completedAt != null
+                        ? '${entry.completedAt!.hour.toString().padLeft(2, '0')}:${entry.completedAt!.minute.toString().padLeft(2, '0')}'
+                        : 'Done';
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.greenAccent
+                                      .withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              '#${entry.tokenNumber}',
+                              style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.userName ?? 'Student',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: Colors.white),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  entry.serviceName ?? 'Completed Service',
+                                  style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  size: 13, color: Colors.greenAccent),
+                              const SizedBox(width: 4),
+                              Text(
+                                completedTimeStr,
+                                style: const TextStyle(
+                                    color: AppColors.textMuted, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shared Stat & Chip Components ────────────────────────────────────────────
+
+class _StatTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String subtext;
+  final Color color;
+  final IconData icon;
+
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.subtext,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtext,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = color ?? AppColors.staffColor;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.15)
+              : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? activeColor : AppColors.cardBorder,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? (color != null ? activeColor : Colors.white)
+                : AppColors.textSecondary,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
