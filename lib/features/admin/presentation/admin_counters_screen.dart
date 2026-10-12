@@ -196,11 +196,55 @@ class _CounterAdminCard extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Delete Counter',
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.cancelled,
+                  size: 22,
+                ),
+                onPressed: () => _confirmDeleteCounter(context, ref),
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteCounter(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Counter'),
+        content: Text(
+          'Are you sure you want to permanently delete Counter "${counter.name}"?',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.cancelled,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(counterRepositoryProvider).deleteCounter(counter.id);
+      onRefresh();
+    }
   }
 
   Future<void> _assignStaff(BuildContext context, WidgetRef ref) async {

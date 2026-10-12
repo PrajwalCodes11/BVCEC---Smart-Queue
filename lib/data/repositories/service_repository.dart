@@ -68,6 +68,47 @@ class ServiceRepository {
     }
   }
 
+  Future<void> deleteServiceCenter(String centerId) async {
+    try {
+      // 1. Delete associated counters
+      await _client
+          .from(SupabaseConstants.countersTable)
+          .delete()
+          .eq('service_center_id', centerId);
+
+      // 2. Delete associated services
+      await _client
+          .from(SupabaseConstants.servicesTable)
+          .delete()
+          .eq('service_center_id', centerId);
+
+      // 3. Delete queues for this center
+      await _client
+          .from(SupabaseConstants.queuesTable)
+          .delete()
+          .eq('service_center_id', centerId);
+
+      // 4. Delete the service center
+      await _client
+          .from(SupabaseConstants.serviceCentersTable)
+          .delete()
+          .eq('id', centerId);
+    } catch (e) {
+      throw NetworkException('Failed to delete service center: $e');
+    }
+  }
+
+  Future<void> deleteService(String serviceId) async {
+    try {
+      await _client
+          .from(SupabaseConstants.servicesTable)
+          .delete()
+          .eq('id', serviceId);
+    } catch (e) {
+      throw NetworkException('Failed to delete service: $e');
+    }
+  }
+
   Future<List<Service>> getServicesForCenter(String serviceCenterId) async {
     try {
       final data = await _client

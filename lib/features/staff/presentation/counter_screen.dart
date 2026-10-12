@@ -97,13 +97,6 @@ enum StaffNavSection {
     icon: Icons.point_of_sale_outlined,
     activeIcon: Icons.point_of_sale,
   ),
-  switchCounter(
-    title: 'Switch Desk / Counter',
-    shortTitle: 'Switch Desk',
-    subtitle: 'Switch or select counter inside your department',
-    icon: Icons.swap_horiz_outlined,
-    activeIcon: Icons.swap_horiz,
-  ),
   departmentQueue(
     title: 'Department Queue',
     shortTitle: 'Dept Queue',
@@ -316,8 +309,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                     counter: selectedCounter,
                     canStepBack: canStepBack,
                     onStepBack: _stepBack,
-                    onSwitchDesk: () => setState(
-                        () => _currentSection = StaffNavSection.switchCounter),
+                    onSwitchDesk: () {
+                      ref.read(_selectedCounterProvider.notifier).state = null;
+                      ref.read(_activeQueueIdProvider.notifier).state = null;
+                      ref.read(_activeServiceNameProvider.notifier).state = null;
+                      setState(() => _currentSection = StaffNavSection.counterDesk);
+                    },
                     onCounterStatusChanged: selectedCounter == null
                         ? null
                         : (newStatus) async {
@@ -406,8 +403,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
             IconButton(
               icon: const Icon(Icons.swap_horiz),
               tooltip: 'Switch Desk',
-              onPressed: () => setState(
-                  () => _currentSection = StaffNavSection.switchCounter),
+              onPressed: () {
+                ref.read(_selectedCounterProvider.notifier).state = null;
+                ref.read(_activeQueueIdProvider.notifier).state = null;
+                ref.read(_activeServiceNameProvider.notifier).state = null;
+              },
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -471,14 +471,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
         }
 
         switch (_currentSection) {
-          case StaffNavSection.switchCounter:
-            return _DepartmentCounterSelector(
-              assignedCenter: assignedCenter,
-              currentCounter: selectedCounter,
-              user: user,
-              onCounterSelected: (counter) =>
-                  _onSelectCounter(counter, assignedCenter.id, user),
-            );
 
           case StaffNavSection.departmentQueue:
             return _DepartmentQueueMonitor(
@@ -2176,8 +2168,8 @@ class _DesktopStaffSidebar extends StatelessWidget {
     final width = isExpanded ? 250.0 : 72.0;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeInOutCubic,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
       width: width,
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
@@ -2187,316 +2179,350 @@ class _DesktopStaffSidebar extends StatelessWidget {
         ),
       ),
       child: SafeArea(
-        child: SizedBox(
-          width: 250,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header / Brand & Toggle
-              Container(
-                height: 64,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppColors.cardBorder, width: 1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: onToggleExpand,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: AppColors.staffColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.staffColor.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.point_of_sale,
-                          color: AppColors.staffColor,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        opacity: isExpanded ? 1.0 : 0.0,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'BVCEC SmartQueue',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              assignedCenter?.name ?? 'Staff Operations',
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 10,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 180),
-                      opacity: isExpanded ? 1.0 : 0.0,
-                      child: IconButton(
-                        icon: const Icon(Icons.menu_open,
-                            color: AppColors.textSecondary, size: 20),
-                        tooltip: 'Collapse sidebar',
-                        onPressed: onToggleExpand,
-                      ),
-                    ),
-                  ],
+        child: Column(
+          children: [
+            // Header / Brand & Toggle
+            Container(
+              height: 64,
+              padding: EdgeInsets.symmetric(horizontal: isExpanded ? 14 : 12),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.cardBorder, width: 1),
                 ),
               ),
-
-              // User Info Pill
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 200),
-                crossFadeState: isExpanded
-                    ? CrossFadeState.showFirst
-                    : CrossFadeState.showSecond,
-                firstChild: Container(
-                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.cardBorder),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor:
-                            AppColors.staffColor.withValues(alpha: 0.25),
-                        child: Text(
-                          user.fullName.initials,
-                          style: const TextStyle(
-                            color: AppColors.staffColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user.fullName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.staffColor
-                                        .withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'STAFF',
-                                    style: TextStyle(
-                                      color: AppColors.staffColor,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    assignedCenter?.name ??
-                                        user.department ??
-                                        'On Duty',
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 10,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                secondChild: const SizedBox(height: 6),
-              ),
-
-              // Navigation Items List
-              Expanded(
-                child: ListView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  children: StaffNavSection.values.map((section) {
-                    final isActive = currentSection == section;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => onSelectSection(section),
-                        child: Container(
-                          height: 48,
+              child: isExpanded
+                  ? Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
-                            color: isActive
-                                ? AppColors.staffColor.withValues(alpha: 0.15)
-                                : Colors.transparent,
+                            color: AppColors.staffColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
-                            border: isActive
-                                ? Border.all(
-                                    color: AppColors.staffColor
-                                        .withValues(alpha: 0.4),
-                                    width: 1,
-                                  )
-                                : null,
+                            border: Border.all(
+                              color: AppColors.staffColor.withValues(alpha: 0.3),
+                            ),
                           ),
-                          child: Row(
+                          child: const Icon(
+                            Icons.point_of_sale,
+                            color: AppColors.staffColor,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 50,
-                                alignment: Alignment.center,
-                                child: Icon(
-                                  isActive ? section.activeIcon : section.icon,
-                                  color: isActive
-                                      ? AppColors.staffColor
-                                      : AppColors.textSecondary,
-                                  size: 20,
+                              const Text(
+                                'BVCEC SmartQueue',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.2,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              Expanded(
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 180),
-                                  opacity: isExpanded ? 1.0 : 0.0,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          section.title,
-                                          style: TextStyle(
-                                            color: isActive
-                                                ? Colors.white
-                                                : AppColors.textPrimary,
-                                            fontWeight: isActive
-                                                ? FontWeight.bold
-                                                : FontWeight.w500,
-                                            fontSize: 13,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          section.subtitle,
-                                          style: const TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 10,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                              Text(
+                                assignedCenter?.name ?? 'Staff Operations',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.menu_open,
+                              color: AppColors.textSecondary, size: 20),
+                          tooltip: 'Collapse sidebar',
+                          onPressed: onToggleExpand,
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Tooltip(
+                        message: 'Expand sidebar',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: onToggleExpand,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.staffColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.staffColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.menu,
+                              color: AppColors.staffColor,
+                              size: 20,
+                            ),
+                          ),
+                        ),
                       ),
-                    );
-                  }).toList(),
-                ),
-              ),
+                    ),
+            ),
 
-              // Sidebar Footer: Sign Out
+            // User Info Pill
+            if (isExpanded)
               Container(
-                height: 64,
+                margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
                 padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: AppColors.cardBorder, width: 1),
-                  ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: Row(
                   children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: onSignOut,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.logout,
-                            color: AppColors.cancelled, size: 20),
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor:
+                          AppColors.staffColor.withValues(alpha: 0.25),
+                      child: Text(
+                        user.fullName.initials,
+                        style: const TextStyle(
+                          color: AppColors.staffColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        opacity: isExpanded ? 1.0 : 0.0,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.cancelled,
-                            side: BorderSide(
-                              color: AppColors.cancelled.withValues(alpha: 0.5),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
                             ),
                           ),
-                          onPressed: onSignOut,
-                          child: const Text('Sign Out',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.staffColor
+                                      .withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'STAFF',
+                                  style: TextStyle(
+                                    color: AppColors.staffColor,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  assignedCenter?.name ??
+                                      user.department ??
+                                      'On Duty',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 10,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+
+            const SizedBox(height: 6),
+
+            // Navigation Items List
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                children: StaffNavSection.values.map((section) {
+                  final isActive = currentSection == section;
+
+                  if (!isExpanded) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Tooltip(
+                        message: section.title,
+                        preferBelow: false,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => onSelectSection(section),
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppColors.staffColor.withValues(alpha: 0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: isActive
+                                  ? Border.all(
+                                      color: AppColors.staffColor
+                                          .withValues(alpha: 0.4),
+                                    )
+                                  : null,
+                            ),
+                            child: Icon(
+                              isActive ? section.activeIcon : section.icon,
+                              color: isActive
+                                  ? AppColors.staffColor
+                                  : AppColors.textSecondary,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => onSelectSection(section),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppColors.staffColor.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: isActive
+                              ? Border.all(
+                                  color: AppColors.staffColor
+                                      .withValues(alpha: 0.35),
+                                )
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isActive ? section.activeIcon : section.icon,
+                              color: isActive
+                                  ? AppColors.staffColor
+                                  : AppColors.textSecondary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    section.shortTitle,
+                                    style: TextStyle(
+                                      color: isActive
+                                          ? AppColors.staffColor
+                                          : AppColors.textPrimary,
+                                      fontWeight: isActive
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    section.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isActive
+                                          ? AppColors.staffColor
+                                              .withValues(alpha: 0.7)
+                                          : AppColors.textMuted,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isActive)
+                              Container(
+                                width: 5,
+                                height: 5,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.staffColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // Sidebar Footer: Sign Out
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
+              child: isExpanded
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.cancelled,
+                          side: BorderSide(
+                            color: AppColors.cancelled.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.logout, size: 16),
+                        label: const Text(
+                          'Sign Out',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: onSignOut,
+                      ),
+                    )
+                  : Tooltip(
+                      message: 'Sign Out',
+                      child: IconButton(
+                        icon: const Icon(Icons.logout,
+                            color: AppColors.cancelled, size: 20),
+                        onPressed: onSignOut,
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );

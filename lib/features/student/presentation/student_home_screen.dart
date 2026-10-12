@@ -1690,25 +1690,37 @@ class _DesktopStudentSidebar extends StatelessWidget {
                 ),
               ),
               child: isExpanded
-                  ? OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.cancelled,
-                        side: BorderSide(
-                          color: AppColors.cancelled.withValues(alpha: 0.5),
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.cancelled,
+                          side: BorderSide(
+                            color: AppColors.cancelled.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        onPressed: onSignOut,
+                        icon: const Icon(Icons.logout, size: 16),
+                        label: const Text(
+                          'Sign Out',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      onPressed: onSignOut,
-                      icon: const Icon(Icons.logout, size: 16),
-                      label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
                     )
-                  : IconButton(
-                      tooltip: 'Sign Out',
-                      icon: const Icon(Icons.logout, color: AppColors.cancelled, size: 20),
-                      onPressed: onSignOut,
+                  : Tooltip(
+                      message: 'Sign Out',
+                      child: IconButton(
+                        icon: const Icon(Icons.logout,
+                            color: AppColors.cancelled, size: 20),
+                        onPressed: onSignOut,
+                      ),
                     ),
             ),
           ],

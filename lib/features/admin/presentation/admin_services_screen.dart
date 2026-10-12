@@ -198,6 +198,7 @@ class _ServiceAdminCard extends ConsumerWidget {
             ),
           ),
           IconButton(
+            tooltip: service.isActive ? 'Deactivate Service' : 'Activate Service',
             icon: Icon(
               service.isActive
                   ? Icons.toggle_on_outlined
@@ -211,8 +212,51 @@ class _ServiceAdminCard extends ConsumerWidget {
               onRefresh();
             },
           ),
+          IconButton(
+            tooltip: 'Delete Service',
+            icon: const Icon(
+              Icons.delete_outline,
+              color: AppColors.cancelled,
+              size: 22,
+            ),
+            onPressed: () => _confirmDeleteService(context, ref),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteService(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Service'),
+        content: Text(
+          'Are you sure you want to permanently delete service "${service.name}"?',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.cancelled,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(serviceRepositoryProvider).deleteService(service.id);
+      onRefresh();
+    }
   }
 }

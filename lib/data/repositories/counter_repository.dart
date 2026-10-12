@@ -104,6 +104,17 @@ class CounterRepository {
     }
   }
 
+  Future<void> deleteCounter(String counterId) async {
+    try {
+      await _client
+          .from(SupabaseConstants.countersTable)
+          .delete()
+          .eq('id', counterId);
+    } catch (e) {
+      throw NetworkException('Failed to delete counter: $e');
+    }
+  }
+
   Future<List<AppUser>> getAllStaff() async {
     try {
       final data = await _client

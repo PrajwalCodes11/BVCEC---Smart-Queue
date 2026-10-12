@@ -215,10 +215,67 @@ class _CenterAdminCard extends ConsumerWidget {
                   onRefresh();
                 },
               ),
+              IconButton(
+                tooltip: 'Delete Service Center',
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.cancelled,
+                  size: 22,
+                ),
+                onPressed: () => _confirmDeleteCenter(context, ref),
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteCenter(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Service Center'),
+        content: Text(
+          'Are you sure you want to delete "${center.name}"?\n\n'
+          'This will permanently remove this department, its configured counters, and its services.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.cancelled),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(serviceRepositoryProvider).deleteServiceCenter(center.id);
+        onRefresh();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Service center "${center.name}" deleted successfully'),
+              backgroundColor: AppColors.cancelled,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete center: $e')),
+          );
+        }
+      }
+    }
   }
 }
