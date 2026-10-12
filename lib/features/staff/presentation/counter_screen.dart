@@ -10,9 +10,11 @@ import '../../../data/models/queue_entry.dart';
 import '../../../data/models/counter.dart';
 import '../../../data/models/service.dart';
 import '../../../data/models/service_center.dart';
+import '../../../data/models/app_user.dart';
 import '../../../domain/queue_state_machine.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/app_drawer.dart';
+import '../../profile/presentation/profile_screen.dart';
 
 // Providers for staff counter flow
 final _staffCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
@@ -45,142 +47,316 @@ final _todayServedCountProvider =
   return ref.watch(queueRepositoryProvider).getTodayServedCount(staffId);
 });
 
-class CounterScreen extends ConsumerWidget {
-  const CounterScreen({super.key});
+enum StaffNavSection {
+  counterDesk(
+    title: 'Counter Operations',
+    shortTitle: 'Counter Desk',
+    subtitle: 'Live ticket service desk & counter operations',
+    icon: Icons.point_of_sale_outlined,
+    activeIcon: Icons.point_of_sale,
+  ),
+  switchCenter(
+    title: 'Switch Service Center',
+    shortTitle: 'Switch Counter',
+    subtitle: 'Reassign or change your service center and counter',
+    icon: Icons.swap_horiz_outlined,
+    activeIcon: Icons.swap_horiz,
+  ),
+  profile(
+    title: 'Staff Profile',
+    shortTitle: 'Profile',
+    subtitle: 'Staff credentials and account settings',
+    icon: Icons.person_outline,
+    activeIcon: Icons.person,
+  );
+
+  final String title;
+  final String shortTitle;
+  final String subtitle;
+  final IconData icon;
+  final IconData activeIcon;
+
+  const StaffNavSection({
+    required this.title,
+    required this.shortTitle,
+    required this.subtitle,
+    required this.icon,
+    required this.activeIcon,
+  });
+}
+
+class CounterScreen extends ConsumerStatefulWidget {
+  final bool embedded;
+  const CounterScreen({super.key, this.embedded = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CounterScreen> createState() => _CounterScreenState();
+}
+
+class _CounterScreenState extends ConsumerState<CounterScreen> {
+  StaffNavSection _currentSection = StaffNavSection.counterDesk;
+  bool _isSidebarExpanded = true;
+
+  void _resetStaffFlow() {
+    ref.read(_activeQueueIdProvider.notifier).state = null;
+    ref.read(_activeServiceNameProvider.notifier).state = null;
+    ref.read(_selectedCounterProvider.notifier).state = null;
+    ref.read(_selectedCenterProvider.notifier).state = null;
+    setState(() => _currentSection = StaffNavSection.counterDesk);
+  }
+
+  void _stepBack() {
+    final queueId = ref.read(_activeQueueIdProvider);
+    final selectedCounter = ref.read(_selectedCounterProvider);
+    final selectedCenterId = ref.read(_selectedCenterProvider);
+
+    if (queueId != null) {
+      ref.read(_activeQueueIdProvider.notifier).state = null;
+      ref.read(_activeServiceNameProvider.notifier).state = null;
+    } else if (selectedCounter != null) {
+      ref.read(_selectedCounterProvider.notifier).state = null;
+    } else if (selectedCenterId != null) {
+      ref.read(_selectedCenterProvider.notifier).state = null;
+    }
+  }
+
+  Future<void> _handleSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign Out'),
+        content: const Text(
+          'Are you sure you want to sign out?',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.cancelled),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(authRepositoryProvider).signOut();
+      if (context.mounted) {
+        context.go(AppRoutes.login);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final selectedCenterId = ref.watch(_selectedCenterProvider);
     final selectedCounter = ref.watch(_selectedCounterProvider);
     final queueId = ref.watch(_activeQueueIdProvider);
     final serviceName = ref.watch(_activeServiceNameProvider);
 
+    final canStepBack = selectedCenterId != null || selectedCounter != null || queueId != null;
+
+    // Embedded mode (e.g. viewed inside Admin dashboard)
+    if (widget.embedded) {
+      return _buildDeskBody(user, selectedCenterId, selectedCounter, queueId, serviceName);
+    }
+
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
+
+    if (isDesktop) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Row(
+          children: [
+            // Desktop Collapsible/Expandable Sidebar
+            _DesktopStaffSidebar(
+              user: user,
+              currentSection: _currentSection,
+              isExpanded: _isSidebarExpanded,
+              onToggleExpand: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+              onSelectSection: (section) {
+                if (section == StaffNavSection.switchCenter) {
+                  _resetStaffFlow();
+                } else {
+                  setState(() => _currentSection = section);
+                }
+              },
+              onSignOut: () => _handleSignOut(context),
+            ),
+
+            // Main Content Area
+            Expanded(
+              child: Column(
+                children: [
+                  // Workspace Top Navigation Bar
+                  _StaffWorkspaceTopBar(
+                    currentSection: _currentSection,
+                    user: user,
+                    counter: selectedCounter,
+                    canStepBack: canStepBack && _currentSection == StaffNavSection.counterDesk,
+                    onStepBack: _stepBack,
+                    onCounterStatusChanged: selectedCounter == null
+                        ? null
+                        : (newStatus) async {
+                            await ref.read(counterRepositoryProvider).updateCounterStatus(
+                                  counterId: selectedCounter.id,
+                                  status: newStatus,
+                                );
+                            ref.read(_selectedCounterProvider.notifier).state =
+                                selectedCounter.copyWith(status: newStatus);
+                          },
+                    onRefresh: () {
+                      ref.invalidate(_staffCentersProvider);
+                      if (selectedCenterId != null) {
+                        ref.invalidate(_countersStreamProvider(selectedCenterId));
+                        ref.invalidate(_centerServicesProvider(selectedCenterId));
+                      }
+                      if (queueId != null) {
+                        ref.invalidate(_waitingEntriesStreamProvider(queueId));
+                      }
+                    },
+                  ),
+
+                  // Dynamic Section Workspace Body
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: KeyedSubtree(
+                        key: ValueKey(_currentSection),
+                        child: _currentSection == StaffNavSection.profile
+                            ? const ProfileScreen(embedded: true)
+                            : _buildDeskBody(
+                                user, selectedCenterId, selectedCounter, queueId, serviceName),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Mobile / Narrow layout
     return Scaffold(
       drawer: AppDrawer(
-        onResetStaffFlow: () {
-          ref.read(_activeQueueIdProvider.notifier).state = null;
-          ref.read(_activeServiceNameProvider.notifier).state = null;
-          ref.read(_selectedCounterProvider.notifier).state = null;
-          ref.read(_selectedCenterProvider.notifier).state = null;
+        selectedStaffSection: _currentSection.index,
+        onSelectStaffSection: (idx) {
+          if (idx == 1) {
+            _resetStaffFlow();
+          } else {
+            setState(() => _currentSection = StaffNavSection.values[idx]);
+          }
         },
+        onResetStaffFlow: _resetStaffFlow,
       ),
       appBar: AppBar(
         title: Text(
           selectedCounter != null
-              ? '${selectedCounter.name} — Staff Portal'
-              : 'Counter Dashboard',
+              ? '${selectedCounter.name} — Staff'
+              : 'Counter Operations',
         ),
-        leading: (selectedCenterId != null || selectedCounter != null || queueId != null)
+        leading: (canStepBack && _currentSection == StaffNavSection.counterDesk)
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: 'Back to previous step',
-                onPressed: () {
-                  if (queueId != null) {
-                    ref.read(_activeQueueIdProvider.notifier).state = null;
-                    ref.read(_activeServiceNameProvider.notifier).state = null;
-                  } else if (selectedCounter != null) {
-                    ref.read(_selectedCounterProvider.notifier).state = null;
-                  } else if (selectedCenterId != null) {
-                    ref.read(_selectedCenterProvider.notifier).state = null;
-                  }
-                },
+                onPressed: _stepBack,
               )
             : null,
         actions: [
-          if (selectedCenterId != null || selectedCounter != null || queueId != null)
-            Builder(
-              builder: (ctx) => IconButton(
-                icon: const Icon(Icons.menu),
-                tooltip: 'Open Navigation Menu',
-                onPressed: () => Scaffold.of(ctx).openDrawer(),
-              ),
-            ),
-          if (queueId != null)
-            IconButton(
-              icon: const Icon(Icons.swap_horiz_outlined),
-              tooltip: 'Switch Service / Queue',
-              onPressed: () {
-                ref.read(_activeQueueIdProvider.notifier).state = null;
-                ref.read(_activeServiceNameProvider.notifier).state = null;
+          if (selectedCounter != null && _currentSection == StaffNavSection.counterDesk)
+            _CounterStatusMenu(
+              status: selectedCounter.status,
+              onChanged: (newStatus) async {
+                await ref.read(counterRepositoryProvider).updateCounterStatus(
+                      counterId: selectedCounter.id,
+                      status: newStatus,
+                    );
+                ref.read(_selectedCounterProvider.notifier).state =
+                    selectedCounter.copyWith(status: newStatus);
               },
             ),
           IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'My Profile',
-            onPressed: () => context.push(AppRoutes.profile),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_outlined),
-            tooltip: 'Sign Out',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Stay'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                      child: const Text('Sign Out'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed == true) {
-                await ref.read(authRepositoryProvider).signOut();
-                if (context.mounted) {
-                  context.go(AppRoutes.login);
-                }
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Counter',
+            onPressed: () {
+              ref.invalidate(_staffCentersProvider);
+              if (selectedCenterId != null) {
+                ref.invalidate(_countersStreamProvider(selectedCenterId));
+                ref.invalidate(_centerServicesProvider(selectedCenterId));
+              }
+              if (queueId != null) {
+                ref.invalidate(_waitingEntriesStreamProvider(queueId));
               }
             },
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _StaffHeader(
-            staffName: user.fullName,
-            counter: selectedCounter,
-            onCounterStatusChanged: selectedCounter == null
-                ? null
-                : (newStatus) async {
-                    await ref
-                        .read(counterRepositoryProvider)
-                        .updateCounterStatus(
-                          counterId: selectedCounter.id,
-                          status: newStatus,
-                        );
-                    ref.read(_selectedCounterProvider.notifier).state =
-                        selectedCounter.copyWith(status: newStatus);
-                  },
-          ),
-          if (selectedCenterId == null)
-            Expanded(child: _CenterSelector())
-          else if (selectedCounter == null)
-            Expanded(child: _CounterSelector(centerId: selectedCenterId))
-          else if (queueId == null)
-            Expanded(
-              child: _QueueActivator(
-                counter: selectedCounter,
-                centerId: selectedCenterId,
-              ),
-            )
-          else
-            Expanded(
-              child: _LiveQueue(
-                queueId: queueId,
-                counter: selectedCounter,
-                serviceName: serviceName ?? 'Service Queue',
-              ),
-            ),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: KeyedSubtree(
+          key: ValueKey(_currentSection),
+          child: _currentSection == StaffNavSection.profile
+              ? const ProfileScreen(embedded: true)
+              : _buildDeskBody(
+                  user, selectedCenterId, selectedCounter, queueId, serviceName),
+        ),
       ),
+    );
+  }
+
+  Widget _buildDeskBody(
+    AppUser user,
+    String? selectedCenterId,
+    Counter? selectedCounter,
+    String? queueId,
+    String? serviceName,
+  ) {
+    return Column(
+      children: [
+        _StaffHeader(
+          staffName: user.fullName,
+          counter: selectedCounter,
+          onCounterStatusChanged: selectedCounter == null
+              ? null
+              : (newStatus) async {
+                  await ref.read(counterRepositoryProvider).updateCounterStatus(
+                        counterId: selectedCounter.id,
+                        status: newStatus,
+                      );
+                  ref.read(_selectedCounterProvider.notifier).state =
+                      selectedCounter.copyWith(status: newStatus);
+                },
+        ),
+        if (selectedCenterId == null)
+          Expanded(child: _CenterSelector())
+        else if (selectedCounter == null)
+          Expanded(child: _CounterSelector(centerId: selectedCenterId))
+        else if (queueId == null)
+          Expanded(
+            child: _QueueActivator(
+              counter: selectedCounter,
+              centerId: selectedCenterId,
+            ),
+          )
+        else
+          Expanded(
+            child: _LiveQueue(
+              queueId: queueId,
+              counter: selectedCounter,
+              serviceName: serviceName ?? 'Service Queue',
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1528,3 +1704,449 @@ class _QueueEntryTile extends StatelessWidget {
     );
   }
 }
+
+// ── Desktop Staff Sidebar ────────────────────────────────────────────────────
+
+class _DesktopStaffSidebar extends StatelessWidget {
+  final AppUser user;
+  final StaffNavSection currentSection;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
+  final ValueChanged<StaffNavSection> onSelectSection;
+  final VoidCallback onSignOut;
+
+  const _DesktopStaffSidebar({
+    required this.user,
+    required this.currentSection,
+    required this.isExpanded,
+    required this.onToggleExpand,
+    required this.onSelectSection,
+    required this.onSignOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = isExpanded ? 250.0 : 72.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      width: width,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          right: BorderSide(color: AppColors.cardBorder, width: 1),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header / Brand & Toggle
+            Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.staffColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.staffColor.withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(Icons.point_of_sale, color: AppColors.staffColor, size: 20),
+                  ),
+                  if (isExpanded) ...[
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'BVCEC SmartQueue',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Staff Operations',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.menu_open : Icons.menu,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    tooltip: isExpanded ? 'Collapse sidebar' : 'Expand sidebar',
+                    onPressed: onToggleExpand,
+                  ),
+                ],
+              ),
+            ),
+
+            // User Info Pill
+            if (isExpanded)
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.staffColor.withValues(alpha: 0.25),
+                      child: Text(
+                        user.fullName.initials,
+                        style: const TextStyle(
+                          color: AppColors.staffColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.staffColor.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'STAFF',
+                                  style: TextStyle(
+                                    color: AppColors.staffColor,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Text(
+                                'On Duty',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 6),
+
+            // Navigation Items List
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                children: StaffNavSection.values.map((section) {
+                  final isActive = currentSection == section;
+
+                  if (!isExpanded) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Tooltip(
+                        message: section.title,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => onSelectSection(section),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppColors.staffColor.withValues(alpha: 0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: isActive
+                                  ? Border.all(
+                                      color: AppColors.staffColor.withValues(alpha: 0.4),
+                                      width: 1,
+                                    )
+                                  : null,
+                            ),
+                            child: Icon(
+                              isActive ? section.activeIcon : section.icon,
+                              color: isActive ? AppColors.staffColor : AppColors.textSecondary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.staffColor.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: isActive
+                          ? Border.all(
+                              color: AppColors.staffColor.withValues(alpha: 0.35),
+                              width: 1,
+                            )
+                          : null,
+                    ),
+                    child: ListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      leading: Icon(
+                        isActive ? section.activeIcon : section.icon,
+                        color: isActive ? AppColors.staffColor : AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      title: Text(
+                        section.title,
+                        style: TextStyle(
+                          color: isActive ? Colors.white : AppColors.textPrimary,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: Text(
+                        section.subtitle,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => onSelectSection(section),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // Sidebar Footer: Sign Out
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
+              child: isExpanded
+                  ? OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.cancelled,
+                        side: BorderSide(
+                          color: AppColors.cancelled.withValues(alpha: 0.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: onSignOut,
+                      icon: const Icon(Icons.logout, size: 16),
+                      label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                    )
+                  : IconButton(
+                      tooltip: 'Sign Out',
+                      icon: const Icon(Icons.logout, color: AppColors.cancelled, size: 20),
+                      onPressed: onSignOut,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Desktop Staff Workspace Top Bar ──────────────────────────────────────────
+
+class _StaffWorkspaceTopBar extends StatelessWidget {
+  final StaffNavSection currentSection;
+  final AppUser user;
+  final Counter? counter;
+  final bool canStepBack;
+  final VoidCallback onStepBack;
+  final ValueChanged<CounterStatus>? onCounterStatusChanged;
+  final VoidCallback onRefresh;
+
+  const _StaffWorkspaceTopBar({
+    required this.currentSection,
+    required this.user,
+    required this.counter,
+    required this.canStepBack,
+    required this.onStepBack,
+    required this.onCounterStatusChanged,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (canStepBack) ...[
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary, size: 20),
+              tooltip: 'Previous Step',
+              onPressed: onStepBack,
+            ),
+            const SizedBox(width: 8),
+          ],
+
+          // Section Title & Breadcrumb
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.staffColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      counter != null
+                          ? 'BVCEC SmartQueue  /  ${counter!.name}'
+                          : 'BVCEC SmartQueue  /  ${currentSection.title}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  counter != null
+                      ? 'Active service desk for ${counter!.name}'
+                      : currentSection.subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Counter Status Menu (when assigned to a counter)
+          if (counter != null && onCounterStatusChanged != null) ...[
+            _CounterStatusMenu(
+              status: counter!.status,
+              onChanged: onCounterStatusChanged!,
+            ),
+            const SizedBox(width: 10),
+          ],
+
+          // Duty pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Colors.greenAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Staff On Duty',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          // Single authoritative Refresh Button (no duplicate buttons!)
+          IconButton(
+            icon: const Icon(Icons.refresh, color: AppColors.textSecondary, size: 20),
+            tooltip: 'Refresh Counter Data',
+            onPressed: onRefresh,
+          ),
+        ],
+      ),
+    );
+  }
+}
+

@@ -11,12 +11,20 @@ class AppDrawer extends ConsumerWidget {
   final VoidCallback? onResetStaffFlow;
   final ValueChanged<int>? onSelectAdminSection;
   final int? selectedAdminSection;
+  final ValueChanged<int>? onSelectStudentSection;
+  final int? selectedStudentSection;
+  final ValueChanged<int>? onSelectStaffSection;
+  final int? selectedStaffSection;
 
   const AppDrawer({
     super.key,
     this.onResetStaffFlow,
     this.onSelectAdminSection,
     this.selectedAdminSection,
+    this.onSelectStudentSection,
+    this.selectedStudentSection,
+    this.onSelectStaffSection,
+    this.selectedStaffSection,
   });
 
   @override
@@ -199,14 +207,35 @@ class AppDrawer extends ConsumerWidget {
                   if (user.role == UserRole.student) ...[
                     _buildSectionHeader('STUDENT SERVICES'),
                     _DrawerTile(
-                      icon: Icons.dashboard_outlined,
-                      activeIcon: Icons.dashboard,
+                      icon: Icons.storefront_outlined,
+                      activeIcon: Icons.storefront,
                       title: 'Live Campus Queues',
                       subtitle: 'Join queues & check counters',
-                      isActive: currentPath == AppRoutes.studentHome,
+                      isActive: onSelectStudentSection != null
+                          ? selectedStudentSection == 0
+                          : currentPath == AppRoutes.studentHome,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.studentHome) {
+                        if (onSelectStudentSection != null) {
+                          onSelectStudentSection!(0);
+                        } else if (currentPath != AppRoutes.studentHome) {
+                          context.go(AppRoutes.studentHome);
+                        }
+                      },
+                    ),
+                    _DrawerTile(
+                      icon: Icons.confirmation_number_outlined,
+                      activeIcon: Icons.confirmation_number,
+                      title: 'My Active Tickets',
+                      subtitle: 'Live turn positions & wait times',
+                      isActive: onSelectStudentSection != null
+                          ? selectedStudentSection == 1
+                          : false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (onSelectStudentSection != null) {
+                          onSelectStudentSection!(1);
+                        } else {
                           context.go(AppRoutes.studentHome);
                         }
                       },
@@ -216,10 +245,14 @@ class AppDrawer extends ConsumerWidget {
                       activeIcon: Icons.history,
                       title: 'Queue History',
                       subtitle: 'View your completed tickets',
-                      isActive: currentPath == AppRoutes.history,
+                      isActive: onSelectStudentSection != null
+                          ? selectedStudentSection == 2
+                          : currentPath == AppRoutes.history,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.history) {
+                        if (onSelectStudentSection != null) {
+                          onSelectStudentSection!(2);
+                        } else if (currentPath != AppRoutes.history) {
                           context.push(AppRoutes.history);
                         }
                       },
@@ -232,28 +265,37 @@ class AppDrawer extends ConsumerWidget {
                     _DrawerTile(
                       icon: Icons.point_of_sale_outlined,
                       activeIcon: Icons.point_of_sale,
-                      title: 'Counter Dashboard',
+                      title: 'Counter Desk',
                       subtitle: 'Serve students & call tickets',
-                      isActive: currentPath == AppRoutes.staffCounter,
+                      isActive: onSelectStaffSection != null
+                          ? selectedStaffSection == 0
+                          : currentPath == AppRoutes.staffCounter,
                       onTap: () {
                         Navigator.pop(context);
-                        if (currentPath != AppRoutes.staffCounter) {
+                        if (onSelectStaffSection != null) {
+                          onSelectStaffSection!(0);
+                        } else if (currentPath != AppRoutes.staffCounter) {
                           context.go(AppRoutes.staffCounter);
                         }
                       },
                     ),
-                    if (onResetStaffFlow != null)
-                      _DrawerTile(
-                        icon: Icons.store_outlined,
-                        activeIcon: Icons.store,
-                        title: 'Switch Service Center',
-                        subtitle: 'Change your assigned center',
-                        isActive: false,
-                        onTap: () {
-                          Navigator.pop(context);
+                    _DrawerTile(
+                      icon: Icons.swap_horiz_outlined,
+                      activeIcon: Icons.swap_horiz,
+                      title: 'Switch Service Center',
+                      subtitle: 'Change your assigned center',
+                      isActive: onSelectStaffSection != null
+                          ? selectedStaffSection == 1
+                          : false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (onSelectStaffSection != null) {
+                          onSelectStaffSection!(1);
+                        } else if (onResetStaffFlow != null) {
                           onResetStaffFlow!();
-                        },
-                      ),
+                        }
+                      },
+                    ),
                   ],
 
                   // Admin Section
@@ -355,13 +397,18 @@ class AppDrawer extends ConsumerWidget {
                     activeIcon: Icons.person,
                     title: 'My Profile',
                     subtitle: 'Account details & contact info',
-                    isActive: (onSelectAdminSection != null && user.role == UserRole.admin)
-                        ? selectedAdminSection == 5
-                        : currentPath == AppRoutes.profile,
+                    isActive: (onSelectAdminSection != null && user.role == UserRole.admin && selectedAdminSection == 5) ||
+                        (onSelectStudentSection != null && user.role == UserRole.student && selectedStudentSection == 3) ||
+                        (onSelectStaffSection != null && user.role == UserRole.staff && selectedStaffSection == 2) ||
+                        currentPath == AppRoutes.profile,
                     onTap: () {
                       Navigator.pop(context);
                       if (onSelectAdminSection != null && user.role == UserRole.admin) {
                         onSelectAdminSection!(5);
+                      } else if (onSelectStudentSection != null && user.role == UserRole.student) {
+                        onSelectStudentSection!(3);
+                      } else if (onSelectStaffSection != null && user.role == UserRole.staff) {
+                        onSelectStaffSection!(2);
                       } else if (currentPath != AppRoutes.profile) {
                         context.push(AppRoutes.profile);
                       }

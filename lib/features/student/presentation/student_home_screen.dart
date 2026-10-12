@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/errors/app_exception.dart';
+import '../../../core/extensions/extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/ewt_calculator.dart';
+import '../../../data/models/app_user.dart';
 import '../../../data/models/queue_entry.dart';
 import '../../../data/models/service.dart';
 import '../../../data/models/service_center.dart';
 import '../../../domain/queue_state_machine.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../../../shared/widgets/app_drawer.dart';
+import '../../profile/presentation/profile_screen.dart';
+import 'history_screen.dart';
 import '../providers/student_providers.dart';
 
 final _serviceCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
@@ -22,8 +26,54 @@ final _allCampusServicesProvider = FutureProvider<List<Service>>((ref) async {
   return ref.watch(serviceRepositoryProvider).getAllActiveServices();
 });
 
+enum StudentNavSection {
+  campusQueues(
+    title: 'Live Campus Queues',
+    shortTitle: 'Queues',
+    subtitle: 'Browse campus service centers & take queue tokens',
+    icon: Icons.storefront_outlined,
+    activeIcon: Icons.storefront,
+  ),
+  activeTickets(
+    title: 'My Active Tickets',
+    shortTitle: 'Active Tickets',
+    subtitle: 'Real-time turn positions, calling counters & wait times',
+    icon: Icons.confirmation_number_outlined,
+    activeIcon: Icons.confirmation_number,
+  ),
+  history(
+    title: 'Queue History',
+    shortTitle: 'History',
+    subtitle: 'Completed, served and cancelled token history',
+    icon: Icons.history_outlined,
+    activeIcon: Icons.history,
+  ),
+  profile(
+    title: 'My Profile',
+    shortTitle: 'Profile',
+    subtitle: 'Student registration details & account settings',
+    icon: Icons.person_outline,
+    activeIcon: Icons.person,
+  );
+
+  final String title;
+  final String shortTitle;
+  final String subtitle;
+  final IconData icon;
+  final IconData activeIcon;
+
+  const StudentNavSection({
+    required this.title,
+    required this.shortTitle,
+    required this.subtitle,
+    required this.icon,
+    required this.activeIcon,
+  });
+}
+
 class StudentHomeScreen extends ConsumerStatefulWidget {
-  const StudentHomeScreen({super.key});
+  final bool embedded;
+  const StudentHomeScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<StudentHomeScreen> createState() => _StudentHomeScreenState();
@@ -33,6 +83,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   int _viewMode = 0; // 0 = All Campus Services, 1 = By Center / Department
+  StudentNavSection _currentSection = StudentNavSection.campusQueues;
+  bool _isSidebarExpanded = true;
 
   @override
   void dispose() {
@@ -73,8 +125,84 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           centerName.contains(q);
     }).toList();
 
+    // Embedded mode (e.g. inside Admin portal)
+    if (widget.embedded) {
+      return _buildSectionContent(
+        user: user,
+        activeEntries: activeEntries,
+        allServices: allServices,
+        allCenters: allCenters,
+        filteredServices: filteredServices,
+        allServicesAsync: allServicesAsync,
+        centersAsync: centersAsync,
+      );
+    }
+
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
+
+    if (isDesktop) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Row(
+          children: [
+            // Desktop Collapsible/Expandable Sidebar
+            _DesktopStudentSidebar(
+              user: user,
+              currentSection: _currentSection,
+              isExpanded: _isSidebarExpanded,
+              activeTicketCount: activeEntries.length,
+              onToggleExpand: () => setState(() => _isSidebarExpanded = !_isSidebarExpanded),
+              onSelectSection: (section) => setState(() => _currentSection = section),
+              onSignOut: () => _confirmSignOut(context, ref),
+            ),
+
+            // Main Content Area
+            Expanded(
+              child: Column(
+                children: [
+                  // Workspace Top Navigation Bar (single refresh button, no duplicate buttons)
+                  _StudentWorkspaceTopBar(
+                    currentSection: _currentSection,
+                    user: user,
+                    onRefresh: () => _refreshAll(ref),
+                  ),
+
+                  // Dynamic Section Workspace Body
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: KeyedSubtree(
+                        key: ValueKey(_currentSection),
+                        child: _buildSectionContent(
+                          user: user,
+                          activeEntries: activeEntries,
+                          allServices: allServices,
+                          allCenters: allCenters,
+                          filteredServices: filteredServices,
+                          allServicesAsync: allServicesAsync,
+                          centersAsync: centersAsync,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Mobile / Narrow layout
     return Scaffold(
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(
+        selectedStudentSection: _currentSection.index,
+        onSelectStudentSection: (idx) => setState(() {
+          _currentSection = StudentNavSection.values[idx];
+        }),
+      ),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,44 +220,184 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 const SizedBox(width: 8),
                 const Text(
                   'BVCEC SmartQueue',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.3),
                 ),
               ],
             ),
             Text(
-              'Hi, ${user.fullName.split(' ').first} (${user.registrationNumber.toUpperCase()})',
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              _currentSection.title,
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ],
         ),
         actions: [
+          // Single authoritative Refresh button (no duplicate profile/history/signout)
           IconButton(
-            icon: const Icon(Icons.history_outlined),
-            tooltip: 'Queue History',
-            onPressed: () => context.push(AppRoutes.history),
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'My Profile',
-            onPressed: () => context.push(AppRoutes.profile),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_outlined),
-            tooltip: 'Sign Out',
-            onPressed: () => _confirmSignOut(context, ref),
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Queue Data',
+            onPressed: () => _refreshAll(ref),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        color: AppColors.accent,
-        onRefresh: () async {
-          ref.invalidate(_serviceCentersProvider);
-          ref.invalidate(_allCampusServicesProvider);
-          ref.invalidate(studentActiveEntriesProvider);
-        },
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: KeyedSubtree(
+          key: ValueKey(_currentSection),
+          child: _buildSectionContent(
+            user: user,
+            activeEntries: activeEntries,
+            allServices: allServices,
+            allCenters: allCenters,
+            filteredServices: filteredServices,
+            allServicesAsync: allServicesAsync,
+            centersAsync: centersAsync,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _refreshAll(WidgetRef ref) {
+    ref.invalidate(_serviceCentersProvider);
+    ref.invalidate(_allCampusServicesProvider);
+    ref.invalidate(studentActiveEntriesProvider);
+  }
+
+  Widget _buildSectionContent({
+    required AppUser user,
+    required List<QueueEntry> activeEntries,
+    required List<Service> allServices,
+    required List<ServiceCenter> allCenters,
+    required List<Service> filteredServices,
+    required AsyncValue<List<Service>> allServicesAsync,
+    required AsyncValue<List<ServiceCenter>> centersAsync,
+  }) {
+    switch (_currentSection) {
+      case StudentNavSection.campusQueues:
+        return _buildCampusQueuesView(
+          user: user,
+          activeEntries: activeEntries,
+          allServices: allServices,
+          allCenters: allCenters,
+          filteredServices: filteredServices,
+          allServicesAsync: allServicesAsync,
+          centersAsync: centersAsync,
+        );
+      case StudentNavSection.activeTickets:
+        return _buildActiveTicketsView(activeEntries);
+      case StudentNavSection.history:
+        return const HistoryScreen(embedded: true);
+      case StudentNavSection.profile:
+        return const ProfileScreen(embedded: true);
+    }
+  }
+
+  Widget _buildActiveTicketsView(List<QueueEntry> activeEntries) {
+    if (activeEntries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.confirmation_number_outlined,
+                  size: 36,
+                  color: AppColors.accent,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'No Active Queue Tickets',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'You are not currently waiting in line for any campus services.\nSelect a service from the campus queues tab to join.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  setState(() => _currentSection = StudentNavSection.campusQueues);
+                },
+                icon: const Icon(Icons.storefront, size: 18),
+                label: const Text(
+                  'Browse Campus Queues',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.accent,
+      onRefresh: () async => _refreshAll(ref),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.confirmation_number, color: AppColors.accent, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Active Tokens in Queue (${activeEntries.length})',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Keep track of your turn. You will be notified when your token is called.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          ...activeEntries.map((entry) => _ActiveTicketCard(entry: entry)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCampusQueuesView({
+    required AppUser user,
+    required List<QueueEntry> activeEntries,
+    required List<Service> allServices,
+    required List<ServiceCenter> allCenters,
+    required List<Service> filteredServices,
+    required AsyncValue<List<Service>> allServicesAsync,
+    required AsyncValue<List<ServiceCenter>> centersAsync,
+  }) {
+    return RefreshIndicator(
+      color: AppColors.accent,
+      onRefresh: () async => _refreshAll(ref),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
             // Active tickets banner
             if (activeEntries.isNotEmpty)
               SliverToBoxAdapter(
@@ -363,8 +631,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             ],
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildWelcomeBanner(String regNo, int activeCount) {
@@ -1087,3 +1354,467 @@ class _ServiceCenterCard extends StatelessWidget {
     );
   }
 }
+
+// ── Desktop Student Sidebar ──────────────────────────────────────────────────
+
+class _DesktopStudentSidebar extends StatelessWidget {
+  final AppUser user;
+  final StudentNavSection currentSection;
+  final bool isExpanded;
+  final int activeTicketCount;
+  final VoidCallback onToggleExpand;
+  final ValueChanged<StudentNavSection> onSelectSection;
+  final VoidCallback onSignOut;
+
+  const _DesktopStudentSidebar({
+    required this.user,
+    required this.currentSection,
+    required this.isExpanded,
+    required this.activeTicketCount,
+    required this.onToggleExpand,
+    required this.onSelectSection,
+    required this.onSignOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = isExpanded ? 250.0 : 72.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      width: width,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          right: BorderSide(color: AppColors.cardBorder, width: 1),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header / Brand & Toggle
+            Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(Icons.school, color: AppColors.accent, size: 20),
+                  ),
+                  if (isExpanded) ...[
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'BVCEC SmartQueue',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Student Portal',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.menu_open : Icons.menu,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    tooltip: isExpanded ? 'Collapse sidebar' : 'Expand sidebar',
+                    onPressed: onToggleExpand,
+                  ),
+                ],
+              ),
+            ),
+
+            // User Info Pill
+            if (isExpanded)
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.accent.withValues(alpha: 0.25),
+                      child: Text(
+                        user.fullName.initials,
+                        style: const TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'STUDENT',
+                                  style: TextStyle(
+                                    color: AppColors.accent,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  user.registrationNumber.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 6),
+
+            // Navigation Items List
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                children: StudentNavSection.values.map((section) {
+                  final isActive = currentSection == section;
+                  final hasActiveBadge = section == StudentNavSection.activeTickets && activeTicketCount > 0;
+
+                  if (!isExpanded) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Tooltip(
+                        message: hasActiveBadge ? '${section.title} ($activeTicketCount)' : section.title,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.center,
+                          children: [
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => onSelectSection(section),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? AppColors.accent.withValues(alpha: 0.15)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: isActive
+                                      ? Border.all(
+                                          color: AppColors.accent.withValues(alpha: 0.4),
+                                          width: 1,
+                                        )
+                                      : null,
+                                ),
+                                child: Icon(
+                                  isActive ? section.activeIcon : section.icon,
+                                  color: isActive ? AppColors.accent : AppColors.textSecondary,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                            if (hasActiveBadge)
+                              Positioned(
+                                top: 2,
+                                right: 8,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.accent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.accent.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: isActive
+                          ? Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.35),
+                              width: 1,
+                            )
+                          : null,
+                    ),
+                    child: ListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      leading: Icon(
+                        isActive ? section.activeIcon : section.icon,
+                        color: isActive ? AppColors.accent : AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              section.title,
+                              style: TextStyle(
+                                color: isActive ? Colors.white : AppColors.textPrimary,
+                                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          if (hasActiveBadge)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$activeTicketCount',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        section.subtitle,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => onSelectSection(section),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // Sidebar Footer: Sign Out
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
+              child: isExpanded
+                  ? OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.cancelled,
+                        side: BorderSide(
+                          color: AppColors.cancelled.withValues(alpha: 0.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: onSignOut,
+                      icon: const Icon(Icons.logout, size: 16),
+                      label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                    )
+                  : IconButton(
+                      tooltip: 'Sign Out',
+                      icon: const Icon(Icons.logout, color: AppColors.cancelled, size: 20),
+                      onPressed: onSignOut,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Desktop Student Workspace Top Bar ────────────────────────────────────────
+
+class _StudentWorkspaceTopBar extends StatelessWidget {
+  final StudentNavSection currentSection;
+  final AppUser user;
+  final VoidCallback onRefresh;
+
+  const _StudentWorkspaceTopBar({
+    required this.currentSection,
+    required this.user,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Section Title & Breadcrumb
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'BVCEC SmartQueue  /  ${currentSection.title}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  currentSection.subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Real-time status pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: AppColors.serving,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'BVCEC Connected',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          // Single authoritative Refresh Button (no duplicate buttons!)
+          IconButton(
+            icon: const Icon(Icons.refresh, color: AppColors.textSecondary, size: 20),
+            tooltip: 'Refresh Queue Data',
+            onPressed: onRefresh,
+          ),
+        ],
+      ),
+    );
+  }
+}
+

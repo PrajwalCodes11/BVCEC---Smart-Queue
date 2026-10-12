@@ -6,6 +6,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/app_user.dart';
+import '../../../data/models/service_center.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../staff/presentation/counter_screen.dart';
@@ -15,6 +16,10 @@ import 'admin_service_centers_screen.dart';
 
 final _campusLiveStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   return ref.watch(queueRepositoryProvider).getCampusLiveStats();
+});
+
+final _overviewCentersProvider = FutureProvider<List<ServiceCenter>>((ref) async {
+  return ref.watch(serviceRepositoryProvider).getActiveServiceCenters();
 });
 
 enum AdminNavSection {
@@ -117,8 +122,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     currentSection: _currentSection,
                     user: user,
                     onRefresh: () => ref.refresh(_campusLiveStatsProvider),
-                    onOpenProfile: () => setState(() => _currentSection = AdminNavSection.profile),
-                    onSignOut: () => _handleSignOut(context),
                   ),
 
                   // Dynamic Section Workspace Body
@@ -189,9 +192,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       case AdminNavSection.analytics:
         return const AdminAnalyticsScreen(embedded: true);
       case AdminNavSection.staffDesk:
-        return const CounterScreen();
+        return const CounterScreen(embedded: true);
       case AdminNavSection.studentPortal:
-        return const StudentHomeScreen();
+        return const StudentHomeScreen(embedded: true);
       case AdminNavSection.profile:
         return const ProfileScreen(embedded: true);
     }
@@ -530,15 +533,11 @@ class _WorkspaceTopBar extends StatelessWidget {
   final AdminNavSection currentSection;
   final AppUser user;
   final VoidCallback onRefresh;
-  final VoidCallback onOpenProfile;
-  final VoidCallback onSignOut;
 
   const _WorkspaceTopBar({
     required this.currentSection,
     required this.user,
     required this.onRefresh,
-    required this.onOpenProfile,
-    required this.onSignOut,
   });
 
   @override
@@ -610,11 +609,6 @@ class _WorkspaceTopBar extends StatelessWidget {
             icon: const Icon(Icons.refresh, color: AppColors.textSecondary),
             tooltip: 'Refresh Workspace Data',
             onPressed: onRefresh,
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined, color: AppColors.textSecondary),
-            tooltip: 'Account Settings',
-            onPressed: onOpenProfile,
           ),
         ],
       ),
@@ -713,73 +707,23 @@ class _OverviewSection extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
-            const Text(
-              'Interactive Workspace Sections',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            Row(
+              children: const [
+                Icon(Icons.storefront_outlined, color: AppColors.accent, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Campus Service Centers Live Status',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+                Spacer(),
+                Text(
+                  'Real-time overview',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Switch sections instantly from this dashboard or the sidebar navigation',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-
-            // Grid of direct interactive workspace jump cards
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 700;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    SizedBox(
-                      width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
-                      child: _AdminMenuCard(
-                        icon: Icons.storefront_outlined,
-                        title: 'Service Centers & Counters',
-                        subtitle: 'Configure departments, add services, and monitor counter queues',
-                        badge: 'MANAGE CENTERS',
-                        color: AppColors.accent,
-                        onTap: () => onNavigateToSection(AdminNavSection.serviceCenters),
-                      ),
-                    ),
-                    SizedBox(
-                      width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
-                      child: _AdminMenuCard(
-                        icon: Icons.bar_chart,
-                        title: 'Analytics & Queue Throughput',
-                        subtitle: 'View wait times, completion rates, peak volume hours by center',
-                        badge: 'VIEW REPORTS',
-                        color: AppColors.adminColor,
-                        onTap: () => onNavigateToSection(AdminNavSection.analytics),
-                      ),
-                    ),
-                    SizedBox(
-                      width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
-                      child: _AdminMenuCard(
-                        icon: Icons.point_of_sale_outlined,
-                        title: 'Staff Operation Desk',
-                        subtitle: 'Inspect or simulate counter calling, ticket serving, and transfers',
-                        badge: 'STAFF DESK',
-                        color: AppColors.staffColor,
-                        onTap: () => onNavigateToSection(AdminNavSection.staffDesk),
-                      ),
-                    ),
-                    SizedBox(
-                      width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
-                      child: _AdminMenuCard(
-                        icon: Icons.school_outlined,
-                        title: 'Student Ticket View',
-                        subtitle: 'Preview the student ticketing screen and live campus queues',
-                        badge: 'STUDENT PORTAL',
-                        color: Colors.blueAccent,
-                        onTap: () => onNavigateToSection(AdminNavSection.studentPortal),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+            const SizedBox(height: 12),
+            const _CampusCentersLiveGrid(),
 
             const SizedBox(height: 24),
 
@@ -948,95 +892,116 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-class _AdminMenuCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String? badge;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _AdminMenuCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.badge,
-    required this.color,
-    required this.onTap,
-  });
+class _CampusCentersLiveGrid extends ConsumerWidget {
+  const _CampusCentersLiveGrid();
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 22),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final centersAsync = ref.watch(_overviewCentersProvider);
+
+    return centersAsync.when(
+      loading: () => const LinearProgressIndicator(color: AppColors.accent),
+      error: (e, _) => Text(
+        'Error loading service centers: $e',
+        style: const TextStyle(color: Colors.red),
+      ),
+      data: (centers) {
+        if (centers.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.cardBorder),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
+            child: const Center(
+              child: Text(
+                'No active service centers configured yet.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          );
+        }
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 700;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: centers.map((center) {
+                return SizedBox(
+                  width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            color: AppColors.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            badge!,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                            ),
+                          child: const Icon(Icons.storefront, color: AppColors.accent, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      center.name,
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'ONLINE',
+                                      style: TextStyle(
+                                        color: Colors.greenAccent,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                center.description.isNotEmpty ? center.description : 'Campus Service Center',
+                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios, color: AppColors.textMuted, size: 14),
-          ],
-        ),
-      ),
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
     );
   }
 }

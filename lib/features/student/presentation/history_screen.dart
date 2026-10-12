@@ -15,7 +15,8 @@ final _historyProvider = FutureProvider<List<QueueEntry>>((ref) async {
 });
 
 class HistoryScreen extends ConsumerStatefulWidget {
-  const HistoryScreen({super.key});
+  final bool embedded;
+  const HistoryScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
@@ -29,17 +30,20 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final history = ref.watch(_historyProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Queue History'),
-        leading: const BackButton(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: () => ref.refresh(_historyProvider),
-          ),
-        ],
-      ),
+      backgroundColor: widget.embedded ? Colors.transparent : null,
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('My Queue History'),
+              leading: const BackButton(),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh',
+                  onPressed: () => ref.refresh(_historyProvider),
+                ),
+              ],
+            ),
       body: Column(
         children: [
           // Filter Chips
