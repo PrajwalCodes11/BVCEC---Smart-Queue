@@ -168,6 +168,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       }
 
       if (mounted) {
+        ref.read(authNotifierProvider.notifier).setUser(user);
         context.go(AppRoutes.roleHome(user.role));
       }
     } on AuthException catch (e) {
@@ -642,8 +643,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildToggle() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           _isRegistering ? 'Already have an account?' : "Don't have an account?",

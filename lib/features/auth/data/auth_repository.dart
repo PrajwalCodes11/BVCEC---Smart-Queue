@@ -55,6 +55,9 @@ class AuthRepository {
     } on AuthException {
       rethrow;
     } catch (e) {
+      if (_isNetworkError(e)) {
+        throw const AuthException(_networkErrorMessage);
+      }
       final msg = e.toString();
       if (msg.contains('invalid_credentials') || msg.contains('Invalid login credentials')) {
         throw const AuthException(
@@ -162,6 +165,9 @@ class AuthRepository {
     } on AuthException {
       rethrow;
     } catch (e) {
+      if (_isNetworkError(e)) {
+        throw const AuthException(_networkErrorMessage);
+      }
       final msg = e.toString();
       if (msg.contains('over_email_send_rate_limit') || msg.contains('rate limit')) {
         throw const AuthException(
@@ -261,6 +267,9 @@ class AuthRepository {
     } on AuthException {
       rethrow;
     } catch (e) {
+      if (_isNetworkError(e)) {
+        throw const AuthException(_networkErrorMessage);
+      }
       final msg = e.toString();
       if (msg.contains('over_email_send_rate_limit') || msg.contains('rate limit')) {
         throw const AuthException(
@@ -413,4 +422,22 @@ class AuthRepository {
       phone: phone,
     );
   }
+
+  static bool _isNetworkError(dynamic e) {
+    final msg = e.toString().toLowerCase();
+    return msg.contains('failed host lookup') ||
+        msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('authretryablefetchexception') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('no address associated with hostname') ||
+        msg.contains('no such host is known') ||
+        msg.contains('connection refused') ||
+        msg.contains('connection timed out') ||
+        msg.contains('errno = 7') ||
+        msg.contains('errno = 11001');
+  }
+
+  static const String _networkErrorMessage =
+      'Unable to connect to server. Please check your internet connection, or verify that your Supabase project is active and unpaused in your Supabase dashboard.';
 }

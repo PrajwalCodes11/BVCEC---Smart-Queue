@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/app_user.dart';
@@ -33,19 +34,70 @@ final counterRepositoryProvider = Provider<CounterRepository>((ref) {
 
 // ─── Auth State ───────────────────────────────────────────────────────────
 
-/// Watches Supabase auth state and provides the current AppUser.
-final authStateProvider = StreamProvider<AppUser?>((ref) async* {
-  final repo = ref.watch(authRepositoryProvider);
-  // Emit current user immediately
-  yield await repo.getCurrentUser();
-  // Then stream subsequent auth changes
-  await for (final state in repo.authStateChanges) {
-    if (state.session != null) {
-      yield await repo.getCurrentUser();
-    } else {
-      yield null;
-    }
+class AuthNotifier extends StateNotifier<AsyncValue<AppUser?>> {
+  final AuthRepository _repo;
+  StreamSubscription<AuthState>? _sub;
+
+  AuthNotifier(this._repo) : super(const AsyncLoading()) {
+    _init();
   }
+
+  Future<void> _init() async {
+    try {
+      final user = await _repo.getCurrentUser();
+      if (mounted) state = AsyncData(user);
+    } catch (_) {
+      if (mounted) state = const AsyncData(null);
+    }
+
+    _sub = _repo.authStateChanges.listen((data) async {
+      if (data.session != null) {
+        try {
+          final user = await _repo.getCurrentUser();
+          if (mounted) state = AsyncData(user);
+        } catch (_) {
+          // Keep current state
+        }
+      } else {
+        if (mounted) state = const AsyncData(null);
+      }
+    });
+  }
+
+  /// Sets user immediately upon successful login/registration
+  void setUser(AppUser user) {
+    state = AsyncData(user);
+  }
+
+  /// Clears user immediately upon logout
+  void clearUser() {
+    state = const AsyncData(null);
+  }
+
+  /// Refreshes user profile from DB
+  Future<void> refresh() async {
+    try {
+      final user = await _repo.getCurrentUser();
+      if (mounted) state = AsyncData(user);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+}
+
+final authNotifierProvider =
+    StateNotifierProvider<AuthNotifier, AsyncValue<AppUser?>>((ref) {
+  final repo = ref.watch(authRepositoryProvider);
+  return AuthNotifier(repo);
+});
+
+/// Watches Supabase auth state and provides the current AppUser.
+final authStateProvider = Provider<AsyncValue<AppUser?>>((ref) {
+  return ref.watch(authNotifierProvider);
 });
 
 /// Convenience provider: returns current user or safe fallback during logout/transitions.
