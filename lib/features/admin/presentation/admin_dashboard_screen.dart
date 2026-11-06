@@ -110,10 +110,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final user = ref.watch(currentUserProvider);
     final statsAsync = ref.watch(_campusLiveStatsProvider);
     final isDesktop = MediaQuery.of(context).size.width >= 850;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (isDesktop) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: isDark ? AppColors.background : CreamColors.background,
         body: Row(
           children: [
             // ── Desktop Collapsible/Expandable Sidebar ──
@@ -159,6 +160,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     // ── Mobile / Narrow Layout ──
     return Scaffold(
+      backgroundColor: isDark ? AppColors.background : CreamColors.background,
       drawer: AppDrawer(
         onSelectAdminSection: (index) {
           setState(() {
@@ -247,6 +249,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
     if (confirmed == true && context.mounted) {
       await ref.read(authRepositoryProvider).signOut();
+      ref.read(authNotifierProvider.notifier).clearUser();
       if (context.mounted) {
         context.go(AppRoutes.login);
       }

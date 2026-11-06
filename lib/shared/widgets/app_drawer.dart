@@ -586,6 +586,7 @@ class AppDrawer extends ConsumerWidget {
                         if (confirmed == true && context.mounted) {
                           Navigator.pop(context);
                           await ref.read(authRepositoryProvider).signOut();
+                          ref.read(authNotifierProvider.notifier).clearUser();
                           if (context.mounted) {
                             context.go(AppRoutes.login);
                           }

@@ -139,10 +139,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     }
 
     final isDesktop = MediaQuery.of(context).size.width >= 850;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (isDesktop) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: isDark ? AppColors.background : CreamColors.background,
         body: Row(
           children: [
             // Desktop Collapsible/Expandable Sidebar
@@ -197,6 +198,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
     // Mobile / Narrow layout
     return Scaffold(
+      backgroundColor: isDark ? AppColors.background : CreamColors.background,
       drawer: AppDrawer(
         selectedStudentSection: _currentSection.index,
         onSelectStudentSection: (idx) => setState(() {
@@ -254,6 +256,39 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             allServicesAsync: allServicesAsync,
             centersAsync: centersAsync,
           ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surface : CreamColors.surface,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.cardBorder : CreamColors.cardBorder,
+              width: 1,
+            ),
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentSection.index,
+          onTap: (idx) {
+            if (idx >= 0 && idx < StudentNavSection.values.length) {
+              setState(() => _currentSection = StudentNavSection.values[idx]);
+            }
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: isDark ? AppColors.surface : CreamColors.surface,
+          selectedItemColor: AppColors.accent,
+          unselectedItemColor: isDark ? AppColors.textMuted : CreamColors.textMuted,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          elevation: 0,
+          items: StudentNavSection.values.map((section) {
+            return BottomNavigationBarItem(
+              icon: Icon(section.icon, size: 22),
+              activeIcon: Icon(section.activeIcon, size: 22),
+              label: section.shortTitle,
+            );
+          }).toList(),
         ),
       ),
     );
@@ -490,7 +525,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
             // Mode Selector Toggle (All Campus Services vs By Center)
             SliverToBoxAdapter(
-              child: Padding(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Row(
                   children: [
@@ -863,6 +899,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
     if (confirmed == true) {
       await ref.read(authRepositoryProvider).signOut();
+      ref.read(authNotifierProvider.notifier).clearUser();
       if (context.mounted) {
         context.go(AppRoutes.login);
       }

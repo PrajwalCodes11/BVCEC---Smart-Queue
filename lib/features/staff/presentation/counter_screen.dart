@@ -170,15 +170,23 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
   }
 
   Future<void> _handleSignOut(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: isDark ? AppColors.surface : CreamColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Sign Out'),
-        content: const Text(
+        title: Text(
+          'Sign Out',
+          style: TextStyle(
+            color: isDark ? Colors.white : CreamColors.textPrimary,
+          ),
+        ),
+        content: Text(
           'Are you sure you want to sign out?',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(
+            color: isDark ? AppColors.textSecondary : CreamColors.textSecondary,
+          ),
         ),
         actions: [
           TextButton(
@@ -195,6 +203,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
     );
     if (confirmed == true && context.mounted) {
       await ref.read(authRepositoryProvider).signOut();
+      ref.read(authNotifierProvider.notifier).clearUser();
       if (context.mounted) {
         context.go(AppRoutes.login);
       }
@@ -278,10 +287,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
     }
 
     final isDesktop = MediaQuery.of(context).size.width >= 850;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (isDesktop) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: isDark ? AppColors.background : CreamColors.background,
         body: Row(
           children: [
             // Desktop Collapsible/Expandable Sidebar
@@ -375,6 +385,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
 
     // Mobile / Narrow layout
     return Scaffold(
+      backgroundColor: isDark ? AppColors.background : CreamColors.background,
       drawer: AppDrawer(
         selectedStaffSection: _currentSection.index,
         onSelectStaffSection: (idx) {
@@ -429,6 +440,14 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
               }
             },
           ),
+          if (canStepBack)
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Open menu',
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+              ),
+            ),
         ],
       ),
       body: AnimatedSwitcher(
@@ -443,6 +462,39 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
             serviceName: serviceName,
             isDesktop: false,
           ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surface : CreamColors.surface,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.cardBorder : CreamColors.cardBorder,
+              width: 1,
+            ),
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentSection.index,
+          onTap: (idx) {
+            if (idx >= 0 && idx < StaffNavSection.values.length) {
+              setState(() => _currentSection = StaffNavSection.values[idx]);
+            }
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: isDark ? AppColors.surface : CreamColors.surface,
+          selectedItemColor: AppColors.staffColor,
+          unselectedItemColor: isDark ? AppColors.textMuted : CreamColors.textMuted,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          elevation: 0,
+          items: StaffNavSection.values.map((section) {
+            return BottomNavigationBarItem(
+              icon: Icon(section.icon, size: 22),
+              activeIcon: Icon(section.activeIcon, size: 22),
+              label: section.shortTitle,
+            );
+          }).toList(),
         ),
       ),
     );
@@ -674,14 +726,16 @@ class _CounterStatusMenu extends StatelessWidget {
       CounterStatus.offline => (Colors.redAccent, 'Offline'),
     };
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return PopupMenuButton<CounterStatus>(
       onSelected: onChanged,
-      color: AppColors.surfaceElevated,
+      color: isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.25),
+          color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
@@ -699,7 +753,7 @@ class _CounterStatusMenu extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 16),
+            Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : CreamColors.textSecondary, size: 16),
           ],
         ),
       ),
@@ -845,11 +899,15 @@ class _DepartmentCounterSelector extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
           child: Row(
             children: [
-              const Text(
-                'Available Counters & Desks',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+              const Expanded(
+                child: Text(
+                  'Available Counters & Desks',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               if (currentCounter != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1157,20 +1215,26 @@ class _QueueActivator extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Step 3: Select Service Queue to Serve',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        'Operating at ${counter.name}',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Step 3: Select Service Queue to Serve',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Operating at ${counter.name}',
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () =>
                         ref.read(_selectedCounterProvider.notifier).state = null,
@@ -2172,16 +2236,22 @@ class _DesktopStaffSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = isExpanded ? 250.0 : 72.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDark ? AppColors.surface : CreamColors.surface;
+    final cardBorderColor = isDark ? AppColors.cardBorder : CreamColors.cardBorder;
+    final textPrimaryColor = isDark ? Colors.white : CreamColors.textPrimary;
+    final textSecondaryColor = isDark ? AppColors.textSecondary : CreamColors.textSecondary;
+    final surfaceElevatedColor = isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       width: width,
       clipBehavior: Clip.hardEdge,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
+      decoration: BoxDecoration(
+        color: surfaceColor,
         border: Border(
-          right: BorderSide(color: AppColors.cardBorder, width: 1),
+          right: BorderSide(color: cardBorderColor, width: 1),
         ),
       ),
       child: SafeArea(
@@ -2191,9 +2261,9 @@ class _DesktopStaffSidebar extends StatelessWidget {
             Container(
               height: 64,
               padding: EdgeInsets.symmetric(horizontal: isExpanded ? 14 : 12),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+                  bottom: BorderSide(color: cardBorderColor, width: 1),
                 ),
               ),
               child: isExpanded
@@ -2221,10 +2291,10 @@ class _DesktopStaffSidebar extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'SmartQueue',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: textPrimaryColor,
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.2,
@@ -2234,8 +2304,8 @@ class _DesktopStaffSidebar extends StatelessWidget {
                               ),
                               Text(
                                 assignedCenter?.name ?? 'Staff Operations',
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                                style: TextStyle(
+                                  color: textSecondaryColor,
                                   fontSize: 10,
                                 ),
                                 maxLines: 1,
@@ -2245,8 +2315,8 @@ class _DesktopStaffSidebar extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.menu_open,
-                              color: AppColors.textSecondary, size: 20),
+                          icon: Icon(Icons.menu_open,
+                              color: textSecondaryColor, size: 20),
                           tooltip: 'Collapse sidebar',
                           onPressed: onToggleExpand,
                         ),
@@ -2285,9 +2355,9 @@ class _DesktopStaffSidebar extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
+                  color: surfaceElevatedColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder),
+                  border: Border.all(color: cardBorderColor),
                 ),
                 child: Row(
                   children: [
@@ -2313,8 +2383,8 @@ class _DesktopStaffSidebar extends StatelessWidget {
                             user.fullName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: textPrimaryColor,
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                             ),
@@ -2345,8 +2415,8 @@ class _DesktopStaffSidebar extends StatelessWidget {
                                   assignedCenter?.name ??
                                       user.department ??
                                       'On Duty',
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
+                                  style: TextStyle(
+                                    color: textSecondaryColor,
                                     fontSize: 10,
                                   ),
                                   maxLines: 1,
@@ -2398,7 +2468,7 @@ class _DesktopStaffSidebar extends StatelessWidget {
                               isActive ? section.activeIcon : section.icon,
                               color: isActive
                                   ? AppColors.staffColor
-                                  : AppColors.textSecondary,
+                                  : textSecondaryColor,
                               size: 22,
                             ),
                           ),
@@ -2433,7 +2503,7 @@ class _DesktopStaffSidebar extends StatelessWidget {
                               isActive ? section.activeIcon : section.icon,
                               color: isActive
                                   ? AppColors.staffColor
-                                  : AppColors.textSecondary,
+                                  : textSecondaryColor,
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -2446,7 +2516,7 @@ class _DesktopStaffSidebar extends StatelessWidget {
                                     style: TextStyle(
                                       color: isActive
                                           ? AppColors.staffColor
-                                          : AppColors.textPrimary,
+                                          : textPrimaryColor,
                                       fontWeight: isActive
                                           ? FontWeight.w700
                                           : FontWeight.w500,
@@ -2489,9 +2559,9 @@ class _DesktopStaffSidebar extends StatelessWidget {
             // Sidebar Footer: Sign Out
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                  top: BorderSide(color: cardBorderColor, width: 1),
                 ),
               ),
               child: isExpanded
@@ -2562,21 +2632,30 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDark ? AppColors.surface : CreamColors.surface;
+    final cardBorderColor = isDark ? AppColors.cardBorder : CreamColors.cardBorder;
+    final textPrimaryColor = isDark ? Colors.white : CreamColors.textPrimary;
+    final textSecondaryColor = isDark ? AppColors.textSecondary : CreamColors.textSecondary;
+    final surfaceElevatedColor = isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final showDutyPill = screenWidth >= 1150 || counter == null;
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
+      decoration: BoxDecoration(
+        color: surfaceColor,
         border: Border(
-          bottom: BorderSide(color: AppColors.cardBorder, width: 1),
+          bottom: BorderSide(color: cardBorderColor, width: 1),
         ),
       ),
       child: Row(
         children: [
           if (canStepBack) ...[
             IconButton(
-              icon: const Icon(Icons.arrow_back,
-                  color: AppColors.textSecondary, size: 20),
+              icon: Icon(Icons.arrow_back,
+                  color: textSecondaryColor, size: 20),
               tooltip: 'Previous Step',
               onPressed: onStepBack,
             ),
@@ -2605,10 +2684,10 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
                         counter != null
                             ? 'SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${counter!.name}'
                             : 'SmartQueue  /  ${assignedCenter?.name ?? 'Department'}  /  ${currentSection.title}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: textPrimaryColor,
                           letterSpacing: -0.2,
                         ),
                         maxLines: 1,
@@ -2622,9 +2701,9 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
                   counter != null
                       ? 'Active service desk for ${counter!.name} • ${assignedCenter?.name ?? ''}'
                       : currentSection.subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: textSecondaryColor,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2663,44 +2742,45 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
             const SizedBox(width: 10),
           ],
 
-          // Duty pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: Colors.greenAccent,
-                    shape: BoxShape.circle,
+          // Duty pill (shown on wider screens to prevent row overflow)
+          if (showDutyPill) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: surfaceElevatedColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cardBorderColor),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Colors.greenAccent,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Staff On Duty',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(width: 6),
+                  Text(
+                    'Staff On Duty',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: textSecondaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          const SizedBox(width: 10),
+            const SizedBox(width: 10),
+          ],
 
           // Single authoritative Refresh Button
           IconButton(
-            icon: const Icon(Icons.refresh,
-                color: AppColors.textSecondary, size: 20),
+            icon: Icon(Icons.refresh,
+                color: textSecondaryColor, size: 20),
             tooltip: 'Refresh Counter Data',
             onPressed: onRefresh,
           ),
@@ -3286,6 +3366,7 @@ class _StaffShiftAnalyticsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final servedCountAsync = ref.watch(_todayServedCountProvider(user.id));
     final completedEntriesAsync =
         ref.watch(_staffTodayCompletedEntriesProvider(user.id));
@@ -3460,21 +3541,26 @@ class _StaffShiftAnalyticsView extends ConsumerWidget {
                 const Icon(Icons.history,
                     color: AppColors.textSecondary, size: 18),
                 const SizedBox(width: 8),
-                const Text(
-                  'Today\'s Completed Tickets Log',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white),
+                Expanded(
+                  child: Text(
+                    'Today\'s Completed Tickets Log',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : CreamColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 completedEntriesAsync.when(
                   loading: () => const SizedBox.shrink(),
                   error: (e, st) => const SizedBox.shrink(),
                   data: (entries) => Text(
                     '${entries.length} completed',
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 12),
+                    style: TextStyle(
+                        color: isDark ? AppColors.textMuted : CreamColors.textMuted,
+                        fontSize: 12),
                   ),
                 ),
               ],
