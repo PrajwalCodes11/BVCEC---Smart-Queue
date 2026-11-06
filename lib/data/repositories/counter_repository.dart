@@ -90,6 +90,23 @@ class CounterRepository {
     }
   }
 
+  /// Unassigns any counter currently assigned to [staffId] and marks it offline.
+  Future<void> unassignStaff({
+    required String staffId,
+  }) async {
+    try {
+      await _client
+          .from(SupabaseConstants.countersTable)
+          .update({
+            'assigned_staff_id': null,
+            'status': 'offline',
+          })
+          .eq('assigned_staff_id', staffId);
+    } catch (e) {
+      throw NetworkException('Failed to unassign staff: $e');
+    }
+  }
+
   Future<void> updateCounterStatus({
     required String counterId,
     required CounterStatus status,

@@ -145,6 +145,27 @@ class CounterScreen extends ConsumerStatefulWidget {
 class _CounterScreenState extends ConsumerState<CounterScreen> {
   StaffNavSection _currentSection = StaffNavSection.counterDesk;
   bool _isSidebarExpanded = true;
+  bool _userDeselectedDesk = false;
+
+  Future<void> _switchDesk([AppUser? user]) async {
+    _userDeselectedDesk = true;
+    final staffUser = user ?? ref.read(currentUserProvider);
+    final currentCounter = ref.read(_selectedCounterProvider);
+    ref.read(_selectedCounterProvider.notifier).state = null;
+    ref.read(_activeQueueIdProvider.notifier).state = null;
+    ref.read(_activeServiceNameProvider.notifier).state = null;
+    setState(() => _currentSection = StaffNavSection.counterDesk);
+
+    if (staffUser != null && currentCounter != null) {
+      try {
+        await ref
+            .read(counterRepositoryProvider)
+            .unassignStaff(staffId: staffUser.id);
+        ref.invalidate(_staffAssignedCenterProvider);
+        ref.invalidate(_countersStreamProvider(currentCounter.serviceCenterId));
+      } catch (_) {}
+    }
+  }
 
   void _stepBack() {
     if (_currentSection != StaffNavSection.counterDesk) {
@@ -158,15 +179,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
       ref.read(_activeQueueIdProvider.notifier).state = null;
       ref.read(_activeServiceNameProvider.notifier).state = null;
     } else if (selectedCounter != null) {
-      ref.read(_selectedCounterProvider.notifier).state = null;
+      _switchDesk();
     }
   }
 
   void _resetToDeskSelection() {
-    ref.read(_activeQueueIdProvider.notifier).state = null;
-    ref.read(_activeServiceNameProvider.notifier).state = null;
-    ref.read(_selectedCounterProvider.notifier).state = null;
-    setState(() => _currentSection = StaffNavSection.counterDesk);
+    _switchDesk();
   }
 
   Future<void> _handleSignOut(BuildContext context) async {
@@ -212,6 +230,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
 
   Future<void> _onSelectCounter(
       Counter counter, String centerId, AppUser user) async {
+    _userDeselectedDesk = false;
     try {
       await ref.read(counterRepositoryProvider).assignStaff(
             counterId: counter.id,
@@ -260,7 +279,9 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
     if (assignedCenter != null) {
       ref.listen<AsyncValue<List<Counter>>>(
           _countersStreamProvider(assignedCenter.id), (previous, next) {
-        if (ref.read(_selectedCounterProvider) == null && next.hasValue) {
+        if (!_userDeselectedDesk &&
+            ref.read(_selectedCounterProvider) == null &&
+            next.hasValue) {
           final myCounter = next.value
               ?.where((c) => c.assignedStaffId == user.id)
               .firstOrNull;
@@ -319,12 +340,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                     counter: selectedCounter,
                     canStepBack: canStepBack,
                     onStepBack: _stepBack,
-                    onSwitchDesk: () {
-                      ref.read(_selectedCounterProvider.notifier).state = null;
-                      ref.read(_activeQueueIdProvider.notifier).state = null;
-                      ref.read(_activeServiceNameProvider.notifier).state = null;
-                      setState(() => _currentSection = StaffNavSection.counterDesk);
-                    },
+                    onSwitchDesk: () => _switchDesk(user),
                     onCounterStatusChanged: selectedCounter == null
                         ? null
                         : (newStatus) async {
@@ -416,11 +432,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
             IconButton(
               icon: const Icon(Icons.swap_horiz),
               tooltip: 'Switch Desk',
-              onPressed: () {
-                ref.read(_selectedCounterProvider.notifier).state = null;
-                ref.read(_activeQueueIdProvider.notifier).state = null;
-                ref.read(_activeServiceNameProvider.notifier).state = null;
-              },
+              onPressed: () => _switchDesk(user),
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -2638,7 +2650,6 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
     final cardBorderColor = isDark ? AppColors.cardBorder : CreamColors.cardBorder;
     final textPrimaryColor = isDark ? Colors.white : CreamColors.textPrimary;
     final textSecondaryColor = isDark ? AppColors.textSecondary : CreamColors.textSecondary;
-    final surfaceElevatedColor = isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated;
 
     return Container(
       height: 64,
@@ -2754,40 +2765,6 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
             _CounterStatusMenu(
               status: counter!.status,
               onChanged: onCounterStatusChanged!,
-            ),
-            const SizedBox(width: 8),
-          ] else ...[
-            // Staff On Duty badge shown only when no desk is selected
-            Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: surfaceElevatedColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cardBorderColor),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: Colors.greenAccent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Staff On Duty',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: textSecondaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(width: 8),
           ],
