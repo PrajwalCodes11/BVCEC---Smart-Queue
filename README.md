@@ -1,7 +1,7 @@
-# BVCEC SmartQueue
+# SmartQueue
 
 <p align="center">
-  <strong>Intelligent Campus Queue & Resource Management System</strong><br>
+  <strong>Intelligent Campus Queue &amp; Resource Management System</strong><br>
   Bonam Venkata Chalamayya Engineering College (Autonomous), Odalarevu, Andhra Pradesh
 </p>
 
@@ -10,192 +10,215 @@
   <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart" alt="Dart" />
   <img src="https://img.shields.io/badge/Backend-Supabase-3ECF8E?logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/State_Management-Riverpod_2.x-00599C" alt="Riverpod" />
-  <img src="https://img.shields.io/badge/Platform-Windows%20|%20Android-green" alt="Platforms" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android-green" alt="Platforms" />
+  <img src="https://img.shields.io/badge/Tests-32%20Passing-brightgreen" alt="Tests" />
 </p>
 
 ---
 
 ## 📌 Overview
 
-**BVCEC SmartQueue** transforms traditional physical line waiting at college service counters into a streamlined, real-time digital experience. Students can join virtual queues from anywhere on campus, track their position and estimated wait times in real time, while staff and administrators manage queue flow and monitor throughput with comprehensive operational analytics.
+**SmartQueue** eliminates physical line waiting at college service counters by providing a real-time digital queue management platform. Students join virtual queues from anywhere on campus and track their position live, while staff manage the counter workflow and administrators monitor throughput with built-in analytics.
 
 ---
 
-## 📦 Direct Downloads & Testing (Android & Windows)
+## 📦 Direct Downloads
 
-Official standalone release binaries are hosted on GitHub Releases for one-click downloading and testing across different mobile phones and PCs:
+Official release binaries are hosted on GitHub Releases and are ready to install with zero prerequisites:
 
-| Platform | Direct Download Link | Size | Instructions |
-|:---|:---|:---|:---|
-| 📱 **Android (Mobile Phones)** | [**⬇️ Download `app-release.apk` (Latest)**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/latest/download/app-release.apk) | 55.3 MB | 1. Click to download on your phone.<br>2. Tap to install (allow *"Install unknown apps"* if prompted).<br>3. Launch and test the native Android app! |
-| 💻 **Windows (Other PCs)** | [**⬇️ Download `smartqueue-windows-x64.zip` (Latest)**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/latest/download/smartqueue-windows-x64.zip) | 12.8 MB | 1. Download and extract the ZIP folder on any Windows PC.<br>2. Double-click `smartqueue.exe` to run immediately.<br>*(Zero prerequisites — no Flutter or Visual Studio needed!)* |
-| 🌐 **Local Wi-Fi Browser Testing** | Local Web Server | — | 1. Run `flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080`<br>2. On any phone or laptop on the same Wi-Fi, open `http://<YOUR_PC_IP>:8080`<br>*(Zero install, instant multi-device testing)* |
+| Platform | Direct Download | Size | Install Instructions |
+| :--- | :--- | :--- | :--- |
+| 📱 **Android** | [⬇️ Download `app-release.apk`](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/latest/download/app-release.apk) | ~55 MB | Download on your phone → Tap to install → Allow *"Install unknown apps"* if prompted → Launch |
+| 💻 **Windows** | [⬇️ Download `smartqueue-windows-x64.zip`](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/latest/download/smartqueue-windows-x64.zip) | ~13 MB | Download → Extract ZIP → Double-click `smartqueue.exe` *(No Flutter or Visual Studio required)* |
 
 > [!NOTE]
-> View all release notes and assets directly on the [**GitHub Releases Page (Latest)**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/latest).
+> All releases and changelogs are on the [**GitHub Releases page**](https://github.com/PrajwalCodes11/BVCEC---Smart-Queue/releases/latest).
+
+---
+
+## 🧪 Testing the App — Default Credentials
+
+Use these seeded accounts to test all roles immediately after installing:
+
+| Role | Login ID | Password | Portal Access |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `ADMIN001` | `password123` | Full dashboard, analytics, center & counter management |
+| **Staff (Exam)** | `STAFF001` | `password123` | Examination Section counter workspace |
+| **Staff (Accounts)** | `STAFF002` | `password123` | Accounts Section counter workspace |
+| **Student** | `22A61A0501` | `password123` | Student queue portal, live tickets & history |
+
+> [!TIP]
+> To test the full workflow: sign in as **Student** to join a queue → switch to **Staff** to call and serve the token → switch to **Admin** to view the analytics update.
 
 ---
 
 ## ✨ Features by Role
 
 ### 🎓 Student Portal
-- **Zero-Friction Authentication**: Login using Registration / Roll Number and password.
-- **Service Center Directory**: Browse campus centers (Examination Section, Accounts, Library, etc.) and active services.
-- **Digital Token & Live Tracking**: Real-time position updates, ticket receipt, and status tracking powered by Supabase Realtime.
-- **Predictive EWT**: Dynamic Estimated Waiting Time calculated using exponential smoothing based on historical service duration and active counter throughput.
-- **Queue Controls & History**: Cancel active tokens and review previous service records with full session timestamps.
-- **Profile Management**: View and update academic profile details.
+
+- **Flexible Authentication** — Log in with Registration Number, Roll Number, Staff ID, or Email.
+- **Self-Registration** — Students can register new accounts directly from the login screen.
+- **Service Center Directory** — Browse all active campus centers (Examination, Accounts, Library, etc.) and their services.
+- **Digital Queue Token** — Join any service queue instantly and receive a numbered token.
+- **Live Position Tracking** — Real-time queue position updates via Supabase Realtime streaming.
+- **Predictive EWT** — Estimated Wait Time shown using exponential smoothing based on live counter throughput.
+- **In-App Call Notifications** — Snack bar alert and push notification when your token is called to the counter.
+- **Active Tickets Panel** — See all currently active tokens across all services in one screen.
+- **Queue History** — Full history of past tokens: Completed, Cancelled, No-Show, and Transferred — filterable by status.
+- **Token Cancellation** — Cancel a waiting token at any time before being called.
+- **Profile Management** — View and update full name, email, phone, department, and year of study.
 
 ### 💼 Staff Console
-- **Dedicated Counter Workspace**: Staff log in and connect to their assigned service counter.
-- **Real-Time Stream**: Live student list updating instantly upon queue arrivals and cancellations.
-- **State Machine Workflow**: Controlled transitions (`Call Next` ➔ `Start Service` ➔ `Complete` / `No-Show` / `Transfer`).
-- **Counter Status Toggle**: Pause or open counters dynamically.
+
+- **Counter Workspace** — Dedicated full-screen operational desk once a counter is selected.
+- **Desk Selection** — Staff choose their active service counter from all available counters in their assigned center.
+- **Real-Time Queue Stream** — Live list of waiting, called, and serving students; updates instantly without manual refresh.
+- **State Machine Workflow** — Strictly enforced transitions: `Call Next` → `Start Service` → `Complete` / `No-Show` / `Transfer`
+- **Counter Status Control** — Toggle counter between `Available`, `Paused`, and `Offline` dynamically.
+- **Switch Desk** — Move to a different counter; previous assignment is atomically released in the database.
+- **Today's Completed Log** — Scrollable record of all tickets served in the current session.
+- **Performance Report** — Per-shift stats: total served, average service duration, and no-show count.
+- **Department Queue Monitor** — View queue depth across all services in the assigned center.
 
 ### 🛡️ Administrator Suite
-- **Live Campus Queue Monitor**: Real-time overview of active waiting and serving students across all centers.
-- **Center, Service & Counter Management**: Create, toggle active states, configure estimated durations, and assign staff to counters.
-- **Advanced Operations Analytics**:
-  - **Date Range Filters**: Inspect 7-day, 30-day, or 90-day periods.
-  - **Campus-Wide or Per-Center**: Toggle between overall campus metrics and specific center performance.
-  - **Interactive Bar Chart (`fl_chart`)**: Daily throughput comparing total tickets vs completed sessions with touch tooltips.
-  - **Peak Hours Heatmap**: 24-hour arrival density histogram pinpointing rush periods.
-  - **Wait & Service Time Metrics**: Average and maximum student wait times and service durations.
-  - **Per-Service Performance**: Granular cards showing total volume, completion progress bars, cancellations, and no-shows.
-  - **Operational Rates**: Completion rate, cancellation rate, and no-show rate indicators.
+
+- **Live Campus Monitor** — Real-time dashboard: total waiting, being served, counters active, today's completions.
+- **Service Centers Management** — Create, edit, toggle active/inactive, and delete campus service centers.
+- **Services Management** — Add, edit, configure estimated durations, and toggle services within any center.
+- **Counters Management** — Create counters, assign staff, and change counter statuses per center.
+- **Staff Desks Roster** — View which staff members are assigned to which counters right now.
+- **Live Student Queues** — Campus-wide student token list with status, position, and counter details.
+- **Analytics & Reports** (date range: 7 / 30 / 90 days, campus-wide or per-center):
+  - Interactive bar chart of daily throughput (total vs. completed)
+  - Peak-hour heatmap (24-hour arrival density)
+  - Average and maximum wait times and service durations
+  - Per-service completion, cancellation, and no-show rates
+  - Detailed per-service performance cards with progress indicators
 
 ---
 
 ## 🏛️ System Architecture
 
-The application is built using **Clean Architecture** patterns separating UI presentation, domain logic, state management, and data sources:
+The application uses **Clean Architecture** to separate presentation, domain logic, state management, and data access:
 
 ```
 lib/
 ├── core/
-│   ├── constants/             # Supabase credentials & table definitions
-│   ├── errors/                # Strongly-typed application exceptions
-│   ├── extensions/            # Helper extensions on core types
-│   ├── providers/             # Root Riverpod providers
-│   ├── router/                # GoRouter with role-based auth guards
-│   ├── services/              # Local notification dispatcher
-│   ├── theme/                 # Dark aesthetic theme (Inter typography & teal accents)
-│   └── utils/                 # EwtCalculator (isolated exponential smoothing engine)
+│   ├── constants/             # Supabase URL, anon key & table names
+│   ├── errors/                # Typed exceptions (AuthException, NetworkException, QueueException)
+│   ├── extensions/            # Dart extensions on core types
+│   ├── providers/             # Root Riverpod providers & AuthNotifier state machine
+│   ├── router/                # GoRouter with role-based auth redirect guards
+│   ├── services/              # Local notification dispatcher (token called alerts)
+│   ├── theme/                 # Dark theme + Creamy White theme (Inter typography)
+│   └── utils/                 # EwtCalculator — isolated exponential smoothing engine
 ├── data/
-│   ├── models/                # Immutable Freezed domain entities & JSON serialization
-│   └── repositories/          # Supabase data repositories (Auth, Queue, Service, Counter)
+│   ├── models/                # Immutable Freezed entities with JSON serialization
+│   └── repositories/          # Supabase repositories: Auth, Queue, Service, Counter
 ├── domain/
-│   └── queue_state_machine.dart  # Strict state transition validator
+│   └── queue_state_machine.dart  # Strict state-transition validator & CounterStatus enum
 ├── features/
-│   ├── admin/presentation/    # Admin dashboard, management CRUD, and analytics
-│   ├── auth/presentation/     # Multi-tab unified authentication & registration
-│   ├── profile/presentation/  # User profile & credentials management
-│   ├── staff/presentation/    # Counter dispatch console
-│   └── student/presentation/  # Virtual queuing, status screens, and history
-└── shared/widgets/            # Reusable UI cards, inputs, and indicators
+│   ├── admin/presentation/    # Dashboard, CRUD management screens, analytics
+│   ├── auth/                  # Login + self-registration (data & presentation layers)
+│   ├── profile/presentation/  # Profile view & edit screen
+│   ├── staff/presentation/    # Counter dispatch workspace (CounterScreen)
+│   └── student/presentation/  # Home, service list, live queue ticket, history
+└── shared/widgets/            # AppDrawer, common loading/error/empty widgets
 ```
 
 ### Queue State Machine
-All queue state transitions are verified through `QueueStateMachine` to ensure business integrity:
+
+All transitions are verified by `QueueStateMachine` before any database write:
+
 ```
-WAITING    ──►  CALLED    ──►  SERVING    ──►  COMPLETED
-   │                │                │
-   └──► CANCELLED   └──► NO_SHOW     └──► TRANSFERRED
+WAITING ──► CALLED  ──► SERVING ──► COMPLETED
+  │             │            │
+  └─► CANCELLED  └─► NO_SHOW  └─► TRANSFERRED
 ```
 
 ---
 
-## 🗄️ Database & Backend (`supabase/`)
-
-Database scripts are structured sequentially inside the [`supabase/`](./supabase/) directory:
+## 🗄️ Database Schema (`supabase/`)
 
 | Script | Purpose |
-|---|---|
-| [`01_schema.sql`](./supabase/01_schema.sql) | Tables, views, triggers, and Row Level Security (RLS) policies. |
-| [`02_register_rpc.sql`](./supabase/02_register_rpc.sql) | Hardened PostgreSQL RPC function enabling direct student & staff signups without email rate limits. |
-| [`03_seed_users.sql`](./supabase/03_seed_users.sql) | Seeds campus service centers, services, counters, and default testing accounts. |
-| [`04_fix_auth_users.sql`](./supabase/04_fix_auth_users.sql) | Maintenance script to clean up or reset authentication records cleanly. |
+| :--- | :--- |
+| [`01_schema.sql`](./supabase/01_schema.sql) | All tables, RLS policies, Realtime enablement, and performance indexes |
+| [`02_register_rpc.sql`](./supabase/02_register_rpc.sql) | PostgreSQL RPC for self-registration without email rate limits |
+| [`03_seed_users.sql`](./supabase/03_seed_users.sql) | Seeds service centers, services, counters, and default test accounts |
+| [`04_fix_auth_users.sql`](./supabase/04_fix_auth_users.sql) | Maintenance script to reset or clean up auth identity records |
 
-### Default Credentials (from Seed)
-| Role | Identifier | Password | Access |
-|---|---|---|---|
-| **Admin** | `admin@bvcec.edu.in` | `Admin@123` | Full admin dashboard, analytics, and management |
-| **Staff (Exam)** | `STF001` | `Staff@123` | Examination Section counter |
-| **Staff (Accounts)** | `STF002` | `Staff@123` | Accounts Section counter |
-| **Student** | `21BV1A0501` | `Student@123` | Student queue portal |
+**Tables:** `users`, `service_centers`, `services`, `counters`, `queues`, `queue_entries`, `queue_events`, `service_sessions`, `ewt_stats`
+
+**Realtime enabled on:** `queue_entries`, `counters`, `queues`
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Developer Setup
 
 ### Prerequisites
-- **Flutter SDK** (`>= 3.13.0`)
-- **Dart SDK** (`>= 3.1.0`)
-- A **Supabase** project account ([supabase.com](https://supabase.com))
 
-### 1. Database Setup
-1. In your Supabase Project dashboard, open the **SQL Editor**.
-2. Run [`supabase/01_schema.sql`](./supabase/01_schema.sql).
-3. Run [`supabase/02_register_rpc.sql`](./supabase/02_register_rpc.sql).
-4. Run [`supabase/03_seed_users.sql`](./supabase/03_seed_users.sql).
+- Flutter SDK `>= 3.13.0` / Dart SDK `>= 3.1.0`
+- A Supabase project ([supabase.com](https://supabase.com))
 
-### 2. Configure Credentials
-Update `lib/core/constants/supabase_constants.dart` with your Supabase URL and anon public key:
+### Steps
 
-```dart
-class SupabaseConstants {
-  static const String supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co';
-  static const String supabaseAnonKey = 'YOUR_ANON_PUBLIC_KEY';
-}
-```
-
-### 3. Generate Freezed Code
 ```bash
+# 1. Clone the repository
+git clone https://github.com/PrajwalCodes11/BVCEC---Smart-Queue.git
+cd BVCEC---Smart-Queue
+
+# 2. Install dependencies & generate Freezed code
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
+
+# 3. Configure Supabase (lib/core/constants/supabase_constants.dart)
+#    Replace supabaseUrl and supabaseAnonKey with your project values
+
+# 4. Run the database scripts in Supabase SQL Editor (in order):
+#    01_schema.sql → 02_register_rpc.sql → 03_seed_users.sql
+
+# 5. Launch the app
+flutter run -d windows   # Windows Desktop
+flutter run -d android   # Android device / emulator
+
+# 6. Run the test suite
+flutter test             # 32 unit & state machine tests
+flutter analyze          # Must show: No issues found
 ```
 
-### 4. Run the Application
-```bash
-# Windows Desktop
-flutter run -d windows
-
-# Android Device / Emulator
-flutter run -d android
-```
-
-### 5. Running Tests
-```bash
-flutter test
-```
+> [!TIP]
+> For multi-device testing without installing: `flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080` then open `http://<PC_IP>:8080` on any device on the same Wi-Fi.
 
 ---
 
-## 📊 Estimated Waiting Time (EWT) Formula
+## 📊 EWT Formula
 
-The waiting time predictor utilizes **single exponential smoothing** to adapt to counter speed dynamically without extreme volatility:
+The wait-time predictor uses **single exponential smoothing** (α = 0.3):
 
-$$\overline{T}_{k} = \alpha \cdot T_{\text{actual}} + (1 - \alpha) \cdot \overline{T}_{k-1}$$
+$$\overline{T}_{k} = 0.3 \times T_{\text{actual}} + 0.7 \times \overline{T}_{k-1}$$
 
-$$\text{EWT} = \frac{\text{Ahead in Queue}}{\text{Active Counters}} \times \overline{T}_{k}$$
+$$\text{EWT} = \left\lceil \frac{\text{Position} - 1}{\text{Active Counters}} \times \overline{T}_{k} \right\rceil$$
 
-- $\alpha = 0.3$: Balanced smoothing factor between recent transactions and historical averages.
-- Handles multiple concurrent open counters per service.
+Handles multiple concurrent open counters per service. Stored and updated per-service in the `ewt_stats` table.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [Flutter](https://flutter.dev)
-- **Language**: [Dart](https://dart.dev)
-- **State Management**: [Riverpod 2.x](https://riverpod.dev)
-- **Routing**: [GoRouter](https://pub.dev/packages/go_router)
-- **Data Serialization**: [Freezed](https://pub.dev/packages/freezed) & [json_serializable](https://pub.dev/packages/json_serializable)
-- **Database & Realtime**: [Supabase](https://supabase.com)
-- **Charts & Data Viz**: [fl_chart](https://pub.dev/packages/fl_chart)
-- **Design System**: Custom Dark Theme, Inter typography, responsive layouts
+| Layer | Technology |
+| :--- | :--- |
+| Framework | Flutter 3.x |
+| Language | Dart 3.x |
+| State Management | Riverpod 2.x |
+| Navigation | GoRouter |
+| Backend & Realtime | Supabase (PostgreSQL + Realtime) |
+| Data Models | Freezed + json_serializable |
+| Charts | fl_chart |
+| Notifications | flutter_local_notifications |
+| Typography | Google Fonts — Inter |
 
 ---
 
 ## 📄 License
+
 Developed for academic evaluation at **Bonam Venkata Chalamayya Engineering College (Autonomous)**. All rights reserved.
