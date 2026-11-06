@@ -733,7 +733,8 @@ class _CounterStatusMenu extends StatelessWidget {
       color: isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
@@ -742,17 +743,17 @@ class _CounterStatusMenu extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.circle, color: color, size: 9),
+            Icon(Icons.circle, color: color, size: 8),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 2),
+            const SizedBox(width: 4),
             Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : CreamColors.textSecondary, size: 16),
           ],
         ),
@@ -2638,8 +2639,6 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
     final textPrimaryColor = isDark ? Colors.white : CreamColors.textPrimary;
     final textSecondaryColor = isDark ? AppColors.textSecondary : CreamColors.textSecondary;
     final surfaceElevatedColor = isDark ? AppColors.surfaceElevated : CreamColors.surfaceElevated;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final showDutyPill = screenWidth >= 1150 || counter == null;
 
     return Container(
       height: 64,
@@ -2714,23 +2713,40 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
 
           // Switch Desk Fast Action Button
           if (counter != null) ...[
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.staffColor,
-                side: BorderSide(
-                    color: AppColors.staffColor.withValues(alpha: 0.5)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onSwitchDesk,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.staffColor.withValues(alpha: 0.5),
+                    ),
+                    color: AppColors.staffColor.withValues(alpha: 0.08),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.swap_horiz, size: 14, color: AppColors.staffColor),
+                      SizedBox(width: 6),
+                      Text(
+                        'Switch Desk',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.staffColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              icon: const Icon(Icons.swap_horiz, size: 14),
-              label: const Text('Switch Desk',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              onPressed: onSwitchDesk,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
           ],
 
           // Counter Status Menu (when assigned to a counter)
@@ -2739,16 +2755,15 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
               status: counter!.status,
               onChanged: onCounterStatusChanged!,
             ),
-            const SizedBox(width: 10),
-          ],
-
-          // Duty pill (shown on wider screens to prevent row overflow)
-          if (showDutyPill) ...[
+            const SizedBox(width: 8),
+          ] else ...[
+            // Staff On Duty badge shown only when no desk is selected
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: surfaceElevatedColor,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: cardBorderColor),
               ),
               child: Row(
@@ -2774,7 +2789,7 @@ class _StaffWorkspaceTopBar extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
           ],
 
           // Single authoritative Refresh Button
